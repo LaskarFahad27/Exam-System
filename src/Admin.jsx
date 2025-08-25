@@ -1,51 +1,172 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from "react-router-dom";
 import { Users, BookOpen, Plus, Edit3, Trash2, Eye, EyeOff, GraduationCap, FileText, Calculator, Book, PenTool, X } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { BACKEND_URL } from './utils/api';
+import { getExams, createExam, createSection, createQuestions, dropExam, fetchExamsById, deleteQuestion, deleteSection } from './utils/api';
+import MCQMaker from './MCQMaker';
+import QuestionsList from './QuestionsList';
 
 const AdminPanel = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [credentials, setCredentials] = useState({ username: '', password: '' });
   const [activeTab, setActiveTab] = useState('students');
+  const navigate = useNavigate();
   const [students, setStudents] = useState([
     { id: 'STU001', name: 'John Doe', email: 'john@example.com', enrolledDate: '2024-01-15' },
     { id: 'STU002', name: 'Jane Smith', email: 'jane@example.com', enrolledDate: '2024-01-20' }
   ]);
-  const [exams, setExams] = useState([
-    { 
-      id: 'EXM001', 
-      title: 'Weekly Test - 01', 
-      duration: 120, 
-      totalQuestions: 40,
-      createdDate: '2024-08-15',
-      status: 'Active'
-    }
-  ]);
+  const [exams, setExams] = useState([]);
   const [showStudentForm, setShowStudentForm] = useState(false);
   const [showExamForm, setShowExamForm] = useState(false);
   const [studentForm, setStudentForm] = useState({ name: '', id: '', email: '' });
   const [examForm, setExamForm] = useState({
     title: '',
-    duration: '',
-    english: { questions: [], timeLimit: '' },
-    math: { questions: [], timeLimit: '' },
-    reading: { questions: [], timeLimit: '' },
-    essay: { topics: [], timeLimit: '' }
+    description: '',
+    english: { questions: [], timeLimit: '', sequenceOrder: '' },
+    math: { questions: [], timeLimit: '', sequenceOrder: '' },
+    reading: { questions: [], timeLimit: '', sequenceOrder: '' },
+    essay: { topics: [], timeLimit: '', sequenceOrder: '' }
   });
   const [activeSection, setActiveSection] = useState('english');
+  const [sectionCreated, setSectionCreated] = useState({
+  english: false,
+  math: false,
+  reading: false,
+  essay: false,
+});
+
+  const [sectionId, setSectionId] = useState();
   const [questionForm, setQuestionForm] = useState({
     question: '',
     options: ['', '', '', ''],
-    correctAnswer: 0
+    correctAnswer: null
   });
-  const [essayTopicForm, setEssayTopicForm] = useState('');
+  const [questionType, setQuestionType] = useState('MCQ');
 
-  const handleLogin = () => {
-    if (credentials.username === 'campuspro' && credentials.password === '1234') {
-      setIsAuthenticated(true);
-    } else {
-      alert('Invalid credentials! Please try again.');
+
+  const [examCreated, setExamCreated] = useState(false);
+  const [essayTopicForm, setEssayTopicForm] = useState('');
+  const [examId, setExamId] = useState();
+  const [isEditingExam, setIsEditingExam] = useState(false);
+  const [currentExamData, setCurrentExamData] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [sectionToDelete, setSectionToDelete] = useState(null);
+  const [showExamDeleteConfirm, setShowExamDeleteConfirm] = useState(false);
+  const [examToDelete, setExamToDelete] = useState(null);
+
+  const handleEditExam = async (examId) => {
+    try {
+      const examData = await fetchExamsById(examId);
+      console.log("Fetched exam data:", examData);
+      
+      if (examData.success) {
+        const exam = examData.data;
+        setCurrentExamData(exam);
+        setExamId(exam.id);
+        setIsEditingExam(true);
+        setExamCreated(true);
+        
+        // Populate exam form with existing data
+        setExamForm({
+          title: exam.title,
+          description: exam.description,
+          english: { questions: [], timeLimit: '', sequenceOrder: '' },
+          math: { questions: [], timeLimit: '', sequenceOrder: '' },
+          reading: { questions: [], timeLimit: '', sequenceOrder: '' },
+          essay: { topics: [], timeLimit: '', sequenceOrder: '' }
+        });
+
+        // Map sections and mark them as created
+        const sectionsState = {
+          english: false,
+          math: false,
+          reading: false,
+          essay: false,
+        };
+
+        const examFormUpdate = {
+          title: exam.title,
+          description: exam.description,
+          english: { questions: [], timeLimit: '', sequenceOrder: '' },
+          math: { questions: [], timeLimit: '', sequenceOrder: '' },
+          reading: { questions: [], timeLimit: '', sequenceOrder: '' },
+          essay: { topics: [], timeLimit: '', sequenceOrder: '' }
+        };
+
+        // Process sections from API response
+        exam.sections.forEach(section => {
+          const sectionName = section.name.toLowerCase();
+          
+          if (examFormUpdate[sectionName]) {
+            sectionsState[sectionName] = true;
+            examFormUpdate[sectionName].timeLimit = section.duration_minutes.toString();
+            examFormUpdate[sectionName].sequenceOrder = section.sequence_order.toString();
+            
+            // Convert questions to the expected format
+            const questions = section.questions.map(q => ({
+              id: q.id,
+              question: q.question_text,
+              options: q.options.map(opt => opt.text),
+              correctAnswer: q.correct_answer
+            }));
+            
+            examFormUpdate[sectionName].questions = questions;
+          }
+        });
+
+        setSectionCreated(sectionsState);
+        setExamForm(examFormUpdate);
+        setShowExamForm(true);
+
+        // Set active section to first available section
+        const firstActiveSection = Object.keys(sectionsState).find(key => sectionsState[key]);
+        if (firstActiveSection) {
+          setActiveSection(firstActiveSection);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch exam:", error);
+      toast.error('Failed to load exam data');
     }
   };
+
+  const resetExamForm = () => {
+    setExamForm({
+      title: '',
+      description: '',
+      english: { questions: [], timeLimit: '', sequenceOrder: '' },
+      math: { questions: [], timeLimit: '', sequenceOrder: '' },
+      reading: { questions: [], timeLimit: '', sequenceOrder: '' },
+      essay: { topics: [], timeLimit: '', sequenceOrder: '' }
+    });
+    setSectionCreated({
+      english: false,
+      math: false,
+      reading: false,
+      essay: false,
+    });
+    setExamCreated(false);
+    setIsEditingExam(false);
+    setCurrentExamData(null);
+    setExamId(null);
+    setActiveSection('english');
+  };
+
+  useEffect(() => {
+    const fetchExams = async () => {
+      try {
+        const examData = await getExams();
+        setExams(examData.data);
+        console.log("ttt",examData.data);
+      } catch (err) {
+        setError("Failed to load exams");
+        console.error(err);
+      }
+    };
+
+    fetchExams();
+  }, []);
+
 
   const handleAddStudent = () => {
     if (studentForm.name && studentForm.id && studentForm.email) {
@@ -55,55 +176,95 @@ const AdminPanel = () => {
     }
   };
 
-  const handleAddExam = () => {
-    if (examForm.title && examForm.duration) {
-      const totalQuestions = examForm.english.questions.length + 
-                           examForm.math.questions.length + 
-                           examForm.reading.questions.length + 
-                           examForm.essay.topics.length;
-      
-      setExams([...exams, {
-        id: `EXM${String(exams.length + 1).padStart(3, '0')}`,
-        title: examForm.title,
-        duration: parseInt(examForm.duration),
-        totalQuestions,
-        createdDate: new Date().toISOString().split('T')[0],
-        status: 'Active',
-        sections: {
-          english: examForm.english,
-          math: examForm.math,
-          reading: examForm.reading,
-          essay: examForm.essay
-        }
-      }]);
-      setExamForm({
-        title: '',
-        duration: '',
-        english: { questions: [], timeLimit: '' },
-        math: { questions: [], timeLimit: '' },
-        reading: { questions: [], timeLimit: '' },
-        essay: { topics: [], timeLimit: '' }
-      });
-      setShowExamForm(false);
-    }
-  };
+  const handleAddExam = async () => {
+  if (examForm.title) {
+    try {
+      const res = await createExam(examForm.title, examForm.description);
+      const examId = res.data.exam.id;
 
-  const addQuestion = () => {
-    if (questionForm.question.trim() && questionForm.options.every(opt => opt.trim())) {
-      setExamForm({
-        ...examForm,
-        [activeSection]: {
-          ...examForm[activeSection],
-          questions: [...examForm[activeSection].questions, { ...questionForm, id: Date.now() }]
-        }
-      });
-      setQuestionForm({
-        question: '',
-        options: ['', '', '', ''],
-        correctAnswer: 0
-      });
+      setExamId(examId);
+      setExamCreated(true);
+
+      console.log("exam id", examId);
+    } catch (error) {
+      console.error("Failed to create exam:", error);
     }
-  };
+  }
+};
+
+
+  const handleCreateSection = async() => {
+    // Skip section creation if we're editing an existing exam (sections already exist)
+    if (isEditingExam) {
+      return;
+    }
+
+    if (examForm[activeSection].timeLimit && examForm[activeSection].sequenceOrder) {
+    try {
+      const res = await createSection(activeSection, examId, examForm[activeSection].timeLimit, examForm[activeSection].sequenceOrder);
+      if(res.success){
+        setSectionCreated(prev => ({
+          ...prev,
+          [activeSection]: true
+        }));
+        setSectionId(res.data.section.id);
+      }
+    } catch (error) {
+      console.error("Failed to create section:", error);
+    }
+  }
+  }
+
+ const addQuestion = async(section, newQuestion) => {
+  try {
+    // Get the section ID for the current active section
+    let currentSectionId = sectionId;
+    
+    // If we're editing an existing exam, find the section ID from the current exam data
+    if (isEditingExam && currentExamData) {
+      const existingSection = currentExamData.sections.find(s => s.name.toLowerCase() === section);
+      if (existingSection) {
+        currentSectionId = existingSection.id;
+      }
+    }
+
+    if (!currentSectionId) {
+      toast.error('Section not found. Please create the section first.');
+      return;
+    }
+
+    // Call the API to create the question
+    const response = await createQuestions(
+      currentSectionId,
+      newQuestion.question,
+      'mcq', // question type
+      newQuestion.options,
+      newQuestion.correctAnswer
+    );
+    
+    if (response.success) {
+      // Add ID from response to the new question
+      const questionWithId = {
+        ...newQuestion,
+        id: response.data.question.id
+      };
+      
+      // Update local state only if API call is successful
+      setExamForm((prev) => ({
+        ...prev,
+        [section]: {
+          ...prev[section],
+          questions: [questionWithId, ...prev[section].questions], 
+        },
+      }));
+      toast.success('Question added successfully!');
+    }
+  } catch (error) {
+    console.error("Failed to create question:", error);
+    toast.error('Failed to add question');
+  }
+};
+
 
   const addEssayTopic = () => {
     if (essayTopicForm.trim()) {
@@ -118,14 +279,81 @@ const AdminPanel = () => {
     }
   };
 
-  const removeQuestion = (sectionName, questionId) => {
-    setExamForm({
-      ...examForm,
-      [sectionName]: {
-        ...examForm[sectionName],
-        questions: examForm[sectionName].questions.filter(q => q.id !== questionId)
+  const removeQuestion = async (section, id) => {
+    try {
+      // Only call API if the question has an ID (meaning it exists in database)
+      if (id && typeof id === 'number') {
+        await deleteQuestion(id);
+        toast.success('Question deleted successfully!');
       }
-    });
+      
+      // Update local state
+      setExamForm((prev) => ({
+        ...prev,
+        [section]: {
+          ...prev[section],
+          questions: prev[section].questions.filter((q) => q.id !== id),
+        },
+      }));
+    } catch (error) {
+      console.error("Failed to delete question:", error);
+      toast.error('Failed to delete question');
+    }
+  };
+
+  const handleDeleteSection = (sectionKey, sectionLabel) => {
+    setSectionToDelete({ key: sectionKey, label: sectionLabel });
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDeleteSection = async () => {
+    if (!sectionToDelete || !currentExamData) return;
+
+    try {
+      // Find the section ID from currentExamData
+      const sectionData = currentExamData.sections.find(
+        s => s.name.toLowerCase() === sectionToDelete.key
+      );
+      
+      if (sectionData && sectionData.id) {
+        await deleteSection(sectionData.id);
+        toast.success('Section deleted successfully!');
+        
+        // Update local state
+        setSectionCreated(prev => ({
+          ...prev,
+          [sectionToDelete.key]: false
+        }));
+        
+        // Reset section data in examForm
+        setExamForm(prev => ({
+          ...prev,
+          [sectionToDelete.key]: {
+            questions: [],
+            timeLimit: '',
+            sequenceOrder: ''
+          }
+        }));
+        
+        // Switch to a different section if the deleted one was active
+        if (activeSection === sectionToDelete.key) {
+          const availableSections = Object.keys(sectionCreated).filter(
+            key => key !== sectionToDelete.key && sectionCreated[key]
+          );
+          if (availableSections.length > 0) {
+            setActiveSection(availableSections[0]);
+          } else {
+            setActiveSection('english');
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Failed to delete section:", error);
+      toast.error('Failed to delete section');
+    } finally {
+      setShowDeleteConfirm(false);
+      setSectionToDelete(null);
+    }
   };
 
   const removeEssayTopic = (topicId) => {
@@ -142,69 +370,26 @@ const AdminPanel = () => {
     setStudents(students.filter(student => student.id !== id));
   };
 
-  const deleteExam = (id) => {
-    setExams(exams.filter(exam => exam.id !== id));
+  const handleDeleteExam = (exam) => {
+    setExamToDelete(exam);
+    setShowExamDeleteConfirm(true);
   };
 
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-md">
-          <div className="text-center mb-8">
-            <div className="bg-blue-600 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-              <GraduationCap className="w-8 h-8 text-white" />
-            </div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">Admin Login</h2>
-            <p className="text-gray-600">Enter your credentials to access the admin panel</p>
-          </div>
-          
-          <div className="space-y-6">
-            <div>
-              <label className="block text-gray-700 text-sm font-medium mb-2">Username</label>
-              <input
-                type="text"
-                value={credentials.username}
-                onChange={(e) => setCredentials({...credentials, username: e.target.value})}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Enter username"
-              />
-            </div>
-            
-            <div>
-              <label className="block text-gray-700 text-sm font-medium mb-2">Password</label>
-              <div className="relative">
-                <input
-                  type={showPassword ? "text" : "password"}
-                  value={credentials.password}
-                  onChange={(e) => setCredentials({...credentials, password: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-12"
-                  placeholder="Enter password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-              </div>
-            </div>
-            
-            <button
-              onClick={handleLogin}
-              className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-md"
-            >
-              Login to Admin Panel
-            </button>
-          </div>
-          
-          <div className="mt-6 text-center text-gray-500 text-sm">
-            Demo: campuspro / 1234
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const confirmDeleteExam = async () => {
+    if (!examToDelete) return;
+    
+    try {
+      await dropExam(examToDelete.id);
+      setExams(exams.filter(exam => exam.id !== examToDelete.id));
+      toast.success('Exam deleted successfully!');
+    } catch (error) {
+      console.error("Failed to delete exam:", error);
+      toast.error('Failed to delete exam');
+    } finally {
+      setShowExamDeleteConfirm(false);
+      setExamToDelete(null);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -303,7 +488,10 @@ const AdminPanel = () => {
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-bold text-gray-800">Exam Management</h2>
               <button
-                onClick={() => setShowExamForm(true)}
+                onClick={() => {
+                  resetExamForm();
+                  setShowExamForm(true);
+                }}
                 className="flex items-center space-x-2 bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-orange-700 transition-colors shadow-md"
               >
                 <Plus className="w-5 h-5" />
@@ -312,35 +500,31 @@ const AdminPanel = () => {
             </div>
 
             {/* Exams Grid */}
-            <div className="grid gap-6 md:grid-cols-2">
-              {exams.map((exam) => (
-                <div key={exam.id} className="bg-white rounded-lg p-6 shadow-md hover:shadow-lg transition-shadow">
-                  <div className="flex justify-between items-start mb-4">
-                    <div className="bg-orange-100 w-12 h-12 rounded-full flex items-center justify-center">
-                      <FileText className="w-6 h-6 text-orange-600" />
-                    </div>
-                    <button
-                      onClick={() => deleteExam(exam.id)}
-                      className="text-red-500 hover:text-red-700 transition-colors"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
-                  </div>
-                  <h3 className="text-lg font-semibold text-gray-800 mb-2">{exam.title}</h3>
-                  <div className="space-y-1 text-gray-600 text-sm">
-                    <p>Exam ID: {exam.id}</p>
-                    <p>Duration: {exam.duration} minutes</p>
-                    <p>Total Questions: {exam.totalQuestions}</p>
-                    <p>Created: {exam.createdDate}</p>
-                    <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
-                      exam.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
-                    }`}>
-                      {exam.status}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
+
+<div className="grid gap-6 md:grid-cols-4">
+  {exams.map((exam) => (
+    <div 
+      key={exam.id} 
+      onClick={() => handleEditExam(exam.id)}
+      className="relative bg-white p-6 rounded-lg shadow-md cursor-pointer hover:shadow-lg transition"
+    >
+      <button
+        onClick={(e) => {
+          e.stopPropagation(); // prevent parent onClick
+          handleDeleteExam(exam);
+        }}
+        className="absolute top-2 right-2 text-red-500 hover:text-red-700 transition"
+      >
+        <Trash2 className="w-5 h-5" />
+      </button>
+
+      <h3 className="text-lg font-bold">{exam.title}</h3>
+      <p>{exam.description}</p>
+      
+    </div>
+  ))}
+</div>
+
           </div>
         )}
       </div>
@@ -403,12 +587,24 @@ const AdminPanel = () => {
       {/* Add Exam Modal */}
       {showExamForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-scroll">
-          <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-6xl max-h-[90vh] mt-10 overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-xl p-8 w-full h-full overflow-y-auto scrollbar-hide">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-gray-800">Create New Exam</h3>
+              <h3 className="text-xl font-bold text-gray-800">
+                {isEditingExam ? 'Edit Exam' : 'Create New Exam'}
+              </h3>
+              <button
+                onClick={() => {
+                  setShowExamForm(false);
+                  resetExamForm();
+                }}
+                className="text-gray-500 hover:text-gray-700 transition-colors"
+                >
+                <X className="w-6 h-6" />
+                </button>
             </div>
             <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {!examCreated && (
+                <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
                 <div>
                   <label className="block text-gray-700 text-sm font-medium mb-2">Exam Title</label>
                   <input
@@ -417,22 +613,26 @@ const AdminPanel = () => {
                     onChange={(e) => setExamForm({...examForm, title: e.target.value})}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Enter exam title"
+                    disabled={isEditingExam}
                   />
                 </div>
                 <div>
-                  <label className="block text-gray-700 text-sm font-medium mb-2">Duration (minutes)</label>
+                  <label className="block text-gray-700 text-sm font-medium mb-2"><span>Description</span> <i>(Optional)</i></label>
                   <input
-                    type="number"
-                    value={examForm.duration}
-                    onChange={(e) => setExamForm({...examForm, duration: e.target.value})}
+                    type="text"
+                    value={examForm.description}
+                    onChange={(e) => setExamForm({...examForm, description: e.target.value})}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="120"
+                    placeholder="Enter exam description"
+                    disabled={isEditingExam}
                   />
                 </div>
               </div>
 
+              )}
               {/* Section Tabs */}
-              <div className="border-b border-gray-200">
+              {examCreated && (
+                <div className="border-b border-gray-200">
                 <div className="flex space-x-8">
                   {[
                     { key: 'english', label: 'English', icon: Book, color: 'blue' },
@@ -456,193 +656,393 @@ const AdminPanel = () => {
                           ? examForm.essay.topics.length 
                           : examForm[section.key].questions.length}
                       </span>
+                      {/* Delete button - only show for active section and if section is created */}
+                      {activeSection === section.key && sectionCreated[section.key] && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteSection(section.key, section.label);
+                          }}
+                          className="ml-2 p-1 text-red-500 hover:text-red-700 hover:bg-red-100 rounded transition-colors"
+                          title={`Delete ${section.label} section`}
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
                     </button>
                   ))}
                 </div>
               </div>
-
+              )}
+              
               {/* Section Content */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Add Question/Topic Form */}
-                <div className="space-y-4">
-                  <div className="flex items-center space-x-2 mb-4">
-                    {activeSection === 'english' && <Book className="w-5 h-5 text-blue-600" />}
-                    {activeSection === 'math' && <Calculator className="w-5 h-5 text-green-600" />}
-                    {activeSection === 'reading' && <FileText className="w-5 h-5 text-purple-600" />}
-                    {activeSection === 'essay' && <PenTool className="w-5 h-5 text-orange-600" />}
-                    <h4 className="text-lg font-semibold text-gray-800">
-                      {activeSection === 'english' && 'Add English Question'}
-                      {activeSection === 'math' && 'Add Mathematics Question'}
-                      {activeSection === 'reading' && 'Add Reading Comprehension Question'}
-                      {activeSection === 'essay' && 'Add Essay Writing Topic'}
-                    </h4>
-                  </div>
-                  
-                  {activeSection !== 'essay' ? (
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-gray-700 text-sm font-medium mb-2">Question</label>
-                        <textarea
-                          value={questionForm.question}
-                          onChange={(e) => setQuestionForm({...questionForm, question: e.target.value})}
-                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="Enter your question"
-                          rows="3"
-                        />
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <label className="block text-gray-700 text-sm font-medium">Options</label>
-                        {questionForm.options.map((option, index) => (
-                          <div key={index} className="flex items-center space-x-2">
-                            <input
-                              type="radio"
-                              name="correctAnswer"
-                              checked={questionForm.correctAnswer === index}
-                              onChange={() => setQuestionForm({...questionForm, correctAnswer: index})}
-                              className="text-blue-600"
-                            />
-                            <input
-                              type="text"
-                              value={option}
-                              onChange={(e) => {
-                                const newOptions = [...questionForm.options];
-                                newOptions[index] = e.target.value;
-                                setQuestionForm({...questionForm, options: newOptions});
-                              }}
-                              className="flex-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              placeholder={`Option ${index + 1}`}
-                            />
-                          </div>
-                        ))}
-                        <p className="text-xs text-gray-500">Select the radio button for the correct answer</p>
-                      </div>
-                      
-                      <button
-                        onClick={addQuestion}
-                        className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
-                          activeSection === 'english' ? 'bg-blue-600 hover:bg-blue-700 text-white' :
-                          activeSection === 'math' ? 'bg-green-600 hover:bg-green-700 text-white' :
-                          'bg-purple-600 hover:bg-purple-700 text-white'
-                        }`}
-                      >
-                        Add {activeSection === 'english' ? 'English' : activeSection === 'math' ? 'Math' : 'Reading'} Question
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-gray-700 text-sm font-medium mb-2">Essay Writing Topic</label>
-                        <textarea
-                          value={essayTopicForm}
-                          onChange={(e) => setEssayTopicForm(e.target.value)}
-                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                          placeholder="Enter essay writing topic or prompt"
-                          rows="4"
-                        />
-                      </div>
-                      
-                      <button
-                        onClick={addEssayTopic}
-                        className="w-full bg-orange-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-orange-700 transition-colors"
-                      >
-                        Add Essay Topic
-                      </button>
-                    </div>
-                  )}
-                  
-                  <div>
-                    <label className="block text-gray-700 text-sm font-medium mb-2">Time Limit (minutes)</label>
-                    <input
-                      type="number"
-                      value={activeSection === 'essay' ? examForm.essay.timeLimit : examForm[activeSection].timeLimit}
-                      onChange={(e) => setExamForm({
-                        ...examForm,
-                        [activeSection]: {
-                          ...examForm[activeSection],
-                          timeLimit: e.target.value
-                        }
-                      })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="30"
-                    />
-                  </div>
-                </div>
 
-                {/* Questions/Topics List */}
-                <div className="space-y-4">
-                  <div className="flex items-center space-x-2">
-                    {activeSection === 'english' && <Book className="w-5 h-5 text-blue-600" />}
-                    {activeSection === 'math' && <Calculator className="w-5 h-5 text-green-600" />}
-                    {activeSection === 'reading' && <FileText className="w-5 h-5 text-purple-600" />}
-                    {activeSection === 'essay' && <PenTool className="w-5 h-5 text-orange-600" />}
-                    <h4 className="text-lg font-semibold text-gray-800">
-                      {activeSection === 'english' && 'English Questions'}
-                      {activeSection === 'math' && 'Mathematics Questions'}
-                      {activeSection === 'reading' && 'Reading Comprehension Questions'}
-                      {activeSection === 'essay' && 'Essay Writing Topics'}
-                      <span className="text-sm font-normal text-gray-600 ml-2">
-                        ({activeSection === 'essay' ? examForm.essay.topics.length : examForm[activeSection].questions.length})
-                      </span>
-                    </h4>
-                  </div>
-                  
-                  <div className="space-y-3 max-h-96 overflow-y-auto">
-                    {activeSection === 'essay' 
-                      ? examForm.essay.topics.map((topic, index) => (
-                          <div key={topic.id} className="bg-gray-50 p-4 rounded-lg">
-                            <div className="flex justify-between items-start">
-                              <div>
-                                <p className="font-medium text-gray-800">Topic {index + 1}</p>
-                                <p className="text-gray-600 mt-1">{topic.topic}</p>
-                              </div>
-                              <button
-                                onClick={() => removeEssayTopic(topic.id)}
-                                className="text-red-500 hover:text-red-700"
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </div>
-                        ))
-                      : examForm[activeSection].questions.map((question, index) => (
-                          <div key={question.id} className="bg-gray-50 p-4 rounded-lg">
-                            <div className="flex justify-between items-start">
-                              <div className="flex-1">
-                                <p className="font-medium text-gray-800">Question {index + 1}</p>
-                                <p className="text-gray-600 mt-1">{question.question}</p>
-                                <div className="mt-2 space-y-1">
-                                  {question.options.map((option, optIndex) => (
-                                    <div key={optIndex} className={`text-sm ${optIndex === question.correctAnswer ? 'text-green-600 font-medium' : 'text-gray-500'}`}>
-                                      {String.fromCharCode(65 + optIndex)}. {option} {optIndex === question.correctAnswer && '✓'}
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                              <button
-                                onClick={() => removeQuestion(activeSection, question.id)}
-                                className="text-red-500 hover:text-red-700 ml-2"
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </div>
-                        ))
-                    }
-                  </div>
-                </div>
-              </div>
+{examCreated && (
+  <div>
+    {/* ========== ENGLISH SECTION ========== */}
+    {activeSection === 'english' && !sectionCreated.english && (
+      <div className="p-6 bg-gray-50 rounded-lg text-center">
+        <div className="text-gray-700 font-medium mb-4">
+          This section is not created yet. <br />
+          Enter allotted time & sequence order for this section to create it.
+        </div>
 
-              <div className="flex space-x-3 pt-6 border-t">
+        <input
+          type="number"
+          placeholder="Enter allotted time (min)"
+          value={examForm.english.timeLimit}
+          onChange={(e) =>
+            setExamForm({
+              ...examForm,
+              english: {
+                ...examForm.english,
+                timeLimit: e.target.value,
+              },
+            })
+          }
+          className="px-4 py-2 border rounded-lg w-1/2 mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <br />
+
+        <input
+          type="number"
+          placeholder="Enter sequence order"
+          value={examForm.english.sequenceOrder}
+          onChange={(e) =>
+            setExamForm({
+              ...examForm,
+              english: {
+                ...examForm.english,
+                sequenceOrder: e.target.value,
+              },
+            })
+          }
+          className="px-4 py-2 border rounded-lg w-1/2 mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <br />
+
+        <button
+          onClick={handleCreateSection}
+          className="ml-3 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+        >
+          Create Section
+        </button>
+      </div>
+    )}
+
+    {activeSection === 'english' && sectionCreated.english && (
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <MCQMaker activeSection={activeSection} addQuestion={addQuestion} />
+
+          <QuestionsList
+            activeSection={activeSection}
+            examForm={examForm}
+            removeQuestion={removeQuestion}
+          />
+      </div>
+    )}
+
+    {/* ========== MATH SECTION ========== */}
+    {activeSection === 'math' && !sectionCreated.math && (
+      <div className="p-6 bg-gray-50 rounded-lg text-center">
+        <p className="text-gray-700 font-medium mb-4">
+          This section is not created yet. Enter allotted time & sequence order.
+        </p>
+        <input
+          type="number"
+          placeholder="Enter allotted time (min)"
+          value={examForm.math.timeLimit}
+          onChange={(e) =>
+            setExamForm({
+              ...examForm,
+              math: {
+                ...examForm.math,
+                timeLimit: e.target.value,
+              },
+            })
+          }
+          className="px-4 py-2 border rounded-lg w-1/2 mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <br />
+        <input
+          type="number"
+          placeholder="Enter sequence order"
+          value={examForm.math.sequenceOrder}
+          onChange={(e) =>
+            setExamForm({
+              ...examForm,
+              math: {
+                ...examForm.math,
+                sequenceOrder: e.target.value,
+              },
+            })
+          }
+          className="px-4 py-2 border rounded-lg w-1/2 mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <br />
+        <button
+          onClick={handleCreateSection}
+          className="ml-3 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
+        >
+          Create Section
+        </button>
+      </div>
+    )}
+
+    {activeSection === 'math' && sectionCreated.math && (
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <MCQMaker activeSection={activeSection} addQuestion={addQuestion} />
+         
+          <QuestionsList
+            activeSection={activeSection}
+            examForm={examForm}
+            removeQuestion={removeQuestion}
+          />
+      </div>
+    )}
+
+    {/* ========== READING SECTION ========== */}
+    {activeSection === 'reading' && !sectionCreated.reading && (
+      <div className="p-6 bg-gray-50 rounded-lg text-center">
+        <p className="text-gray-700 font-medium mb-4">
+          This section is not created yet. Enter allotted time & sequence order.
+        </p>
+        <input
+          type="number"
+          placeholder="Enter allotted time (min)"
+          value={examForm.reading.timeLimit}
+          onChange={(e) =>
+            setExamForm({
+              ...examForm,
+              reading: {
+                ...examForm.reading,
+                timeLimit: e.target.value,
+              },
+            })
+          }
+          className="px-4 py-2 border rounded-lg w-1/2 mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <br />
+        <input
+          type="number"
+          placeholder="Enter sequence order"
+          value={examForm.reading.sequenceOrder}
+          onChange={(e) =>
+            setExamForm({
+              ...examForm,
+              reading: {
+                ...examForm.reading,
+                sequenceOrder: e.target.value,
+              },
+            })
+          }
+          className="px-4 py-2 border rounded-lg w-1/2 mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <br />
+        <button
+          onClick={handleCreateSection}
+          className="ml-3 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700"
+        >
+          Create Section
+        </button>
+      </div>
+    )}
+
+    {activeSection === 'reading' && sectionCreated.reading && (
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <MCQMaker activeSection={activeSection} addQuestion={addQuestion} />
+
+          <QuestionsList
+            activeSection={activeSection}
+            examForm={examForm}
+            removeQuestion={removeQuestion}
+          />
+      </div>
+    )}
+
+    {/* ========== ESSAY SECTION ========== */}
+    {activeSection === 'essay' && !sectionCreated.essay && (
+      <div className="p-6 bg-gray-50 rounded-lg text-center">
+        <p className="text-gray-700 font-medium mb-4">
+          This section is not created yet. Enter allotted time & sequence order.
+        </p>
+        <input
+          type="number"
+          placeholder="Enter allotted time (min)"
+          value={examForm.essay.timeLimit}
+          onChange={(e) =>
+            setExamForm({
+              ...examForm,
+              essay: {
+                ...examForm.essay,
+                timeLimit: e.target.value,
+              },
+            })
+          }
+          className="px-4 py-2 border rounded-lg w-1/2 mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <br />
+        <input
+          type="number"
+          placeholder="Enter sequence order"
+          value={examForm.essay.sequenceOrder}
+          onChange={(e) =>
+            setExamForm({
+              ...examForm,
+              essay: {
+                ...examForm.essay,
+                sequenceOrder: e.target.value,
+              },
+            })
+          }
+          className="px-4 py-2 border rounded-lg w-1/2 mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <br />
+        <button
+          onClick={handleCreateSection}
+          className="ml-3 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+        >
+          Create Section
+        </button>
+      </div>
+    )}
+
+    {activeSection === 'essay' && sectionCreated.essay && (
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="bg-white p-6 rounded-lg shadow-md">
+          <h2 className="text-lg font-semibold mb-4">Add Essay Topic</h2>
+          <input
+            type="text"
+            placeholder="Enter essay topic"
+            value={essayTopicForm}
+            onChange={(e) => setEssayTopicForm(e.target.value)}
+            className="px-4 py-2 border rounded-lg w-full mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <button
+            onClick={addEssayTopic}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Add Topic
+          </button>
+          {/* Essay form inputs */}
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow-md">
+          <h2 className="text-lg font-semibold mb-4">Essay Topics</h2>
+          <ul className="list-disc list-inside text-gray-700">
+            {examForm.essay.topics.map((topic) => (
+              <li key={topic.id} className="flex items-center justify-between mb-2">
+                <span>{topic.topic}</span>
+                <button
+                  onClick={() => removeEssayTopic(topic.id)}
+                  className="text-red-500 hover:text-red-700 ml-2"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </li>
+            ))}
+            {examForm.essay.topics.length === 0 && (
+              <p className="text-gray-500 italic">No topics added yet</p>
+            )}
+          </ul>
+        </div>
+      </div>
+    )}
+  </div>
+)}
+
+              {!examCreated && (
+                <div className="flex space-x-3 pt-6 border-t">
                 <button
                   onClick={handleAddExam}
                   className="flex-1 bg-green-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-green-700 transition-colors"
+                  disabled={isEditingExam}
                 >
                   Create Exam
                 </button>
                 <button
-                  onClick={() => setShowExamForm(false)}
+                 onClick={() => {
+                    setShowExamForm(false);
+                    resetExamForm();
+                    }}
+
                   className="flex-1 bg-red-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-red-700 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Section Confirmation Modal */}
+      {showDeleteConfirm && sectionToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+            <div className="flex items-center mb-4">
+              <div className="flex-shrink-0 w-10 h-10 mx-auto bg-red-100 rounded-full flex items-center justify-center">
+                <X className="w-6 h-6 text-red-600" />
+              </div>
+            </div>
+            <div className="text-center">
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                Delete Section
+              </h3>
+              <p className="text-sm text-gray-500 mb-6">
+                Do you want to delete <span className="font-semibold">{sectionToDelete.label}</span> section?
+              </p>
+              <div className="flex space-x-3">
+                <button
+                  onClick={confirmDeleteSection}
+                  className="flex-1 bg-red-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-red-700 transition-colors"
+                >
+                  Confirm
+                </button>
+                <button
+                  onClick={() => {
+                    setShowDeleteConfirm(false);
+                    setSectionToDelete(null);
+                  }}
+                  className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-400 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Exam Confirmation Modal */}
+      {showExamDeleteConfirm && examToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+            <div className="flex items-center mb-4">
+              <div className="flex-shrink-0 w-10 h-10 mx-auto bg-red-100 rounded-full flex items-center justify-center">
+                <X className="w-6 h-6 text-red-600" />
+              </div>
+            </div>
+            <div className="text-center">
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                Delete Exam
+              </h3>
+              <p className="text-sm text-gray-500 mb-6">
+                Do you want to delete <span className="font-semibold">{examToDelete.title}</span>?
+              </p>
+              <div className="flex space-x-3">
+                <button
+                  onClick={confirmDeleteExam}
+                  className="flex-1 bg-red-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-red-700 transition-colors"
+                >
+                  Confirm
+                </button>
+                <button
+                  onClick={() => {
+                    setShowExamDeleteConfirm(false);
+                    setExamToDelete(null);
+                  }}
+                  className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-400 transition-colors"
                 >
                   Cancel
                 </button>

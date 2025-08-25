@@ -17,7 +17,7 @@ const LandingPage = () => {
   };
 
   const adminLogin = () => {
-    navigate("/admin"); 
+    navigate("/adminlogin"); 
   };
 
   return (

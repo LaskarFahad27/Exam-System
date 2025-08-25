@@ -6,7 +6,7 @@ import {
   Menu,
   X
 } from 'lucide-react';
-import logo from "../src/assets/logo.png"
+import logo from "../assets/logo.png"
 
 const BRACU_Exam = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -17,7 +17,7 @@ const BRACU_Exam = () => {
   };
 
   const adminLogin = () => {
-    navigate("/admin"); 
+    navigate("/adminlogin"); 
   };
 
   return (

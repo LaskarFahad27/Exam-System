@@ -1,0 +1,265 @@
+export const BACKEND_URL = "http://172.232.104.77:5000/api";
+
+
+export async function getExams() {
+  
+    const adminToken = localStorage.getItem("adminToken");
+
+  if (!adminToken) {
+    throw new Error("Authentication required");
+  }
+
+  try {
+    const response = await fetch(`${BACKEND_URL}/exams`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json",
+                  "Authorization": `Bearer ${adminToken}`
+      },
+    });
+    
+    const data = await response.json();
+    
+    if (response.ok) {
+      console.log("Exams fetched successfully:", data);
+      return data;
+    }
+    else {
+      throw new Error(data.message || "Failed to fetch exams");
+    }
+  } catch (error) {
+    console.error("Error fetching exams:", error);
+    throw error;
+  }
+}
+
+export async function createExam(title, description) {
+  
+    const adminToken = localStorage.getItem("adminToken");
+
+  if (!adminToken) {
+    throw new Error("Authentication required");
+  }
+
+  try {
+
+    const response = await fetch(`${BACKEND_URL}/exams/shell`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json",
+                  "Authorization": `Bearer ${adminToken}`
+      },
+      body: JSON.stringify({
+        title,
+        description
+      }),
+    });
+    
+    const data = await response.json();
+    
+    if (response.ok) {
+      console.log("Exams created successfully:", data);
+      return data;
+    }
+    else {
+      throw new Error(data.message || "Failed to create exams");
+    }
+  } catch (error) {
+    console.error("Error creating exams:", error);
+    throw error;
+  }
+}
+
+export async function createSection(name, examId, time, order) {
+  
+    const adminToken = localStorage.getItem("adminToken");
+
+  if (!adminToken) {
+    throw new Error("Authentication required");
+  }
+
+  try {
+
+    const response = await fetch(`${BACKEND_URL}/exams/${examId}/sections`,
+       {
+      method: "POST",
+      headers: { "Content-Type": "application/json",
+                  "Authorization": `Bearer ${adminToken}`
+      },
+      body: JSON.stringify({
+        name,
+        duration_minutes: time,
+        sequence_order: order
+      }),
+    });
+    
+    const data = await response.json();
+    
+    if (response.ok) {
+      console.log("Section created successfully:", data);
+      return data;
+    }
+    else {
+      throw new Error(data.message || "Failed to create section");
+    }
+  } catch (error) {
+    console.error("Error creating section:", error);
+    throw error;
+  }
+}
+
+export async function createQuestions(sectionId, question, type, options, answer) {
+  const adminToken = localStorage.getItem("adminToken");
+  if (!adminToken) throw new Error("Authentication required");
+
+  try {
+    const response = await fetch(`${BACKEND_URL}/exams/sections/${sectionId}/questions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${adminToken}`
+      },
+      body: JSON.stringify({
+        question_text: question,
+        question_type: type,
+        options: options.map(opt => ({ text: opt })), 
+        correct_answer: answer
+      }),
+    });
+
+    const data = await response.json();
+    if (response.ok) {
+      console.log("Question created successfully:", data);
+      return data;
+    } else {
+      throw new Error(data.message || "Failed to create question");
+    }
+  } catch (error) {
+    console.error("Error creating question:", error);
+    throw error;
+  }
+}
+
+
+export async function dropExam(examId) {
+  
+    const adminToken = localStorage.getItem("adminToken");
+
+  if (!adminToken) {
+    throw new Error("Authentication required");
+  }
+
+  try {
+
+    const response = await fetch(`${BACKEND_URL}/exams/${examId}`,
+       {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json",
+                  "Authorization": `Bearer ${adminToken}`
+      },
+      // body: JSON.stringify({
+      //   name,
+      //   duration_minutes: time,
+      //   sequence_order: order
+      // }),
+    });
+    
+    const data = await response.json();
+    
+    if (response.ok) {
+      console.log("Exam deleted successfully:", data);
+      return data;
+    }
+    else {
+      throw new Error(data.message || "Failed to delete exam1");
+    }
+  } catch (error) {
+    console.error("Error deleting exam:", error);
+    throw error;
+  }
+}
+
+export async function deleteQuestion(questionId) {
+  const adminToken = localStorage.getItem("adminToken");
+  if (!adminToken) {
+    throw new Error("Authentication required");
+  }
+
+  try {
+    const response = await fetch(`${BACKEND_URL}/exams/questions/${questionId}`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${adminToken}`
+      }
+    });
+
+    const data = await response.json();
+    if (response.ok) {
+      console.log("Question deleted successfully:", data);
+      return data;
+    } else {
+      throw new Error(data.message || "Failed to delete question");
+    }
+  } catch (error) {
+    console.error("Error deleting question:", error);
+    throw error;
+  }
+}
+
+export async function deleteSection(sectionId) {
+  const adminToken = localStorage.getItem("adminToken");
+  if (!adminToken) {
+    throw new Error("Authentication required");
+  }
+
+  try {
+    const response = await fetch(`${BACKEND_URL}/exams/sections/${sectionId}`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${adminToken}`
+      }
+    });
+
+    const data = await response.json();
+    if (response.ok) {
+      console.log("Section deleted successfully:", data);
+      return data;
+    } else {
+      throw new Error(data.message || "Failed to delete section");
+    }
+  } catch (error) {
+    console.error("Error deleting section:", error);
+    throw error;
+  }
+}
+
+export async function fetchExamsById(examId) {
+
+    const adminToken = localStorage.getItem("adminToken");
+
+  if (!adminToken) {
+    throw new Error("Authentication required");
+  }
+
+  try {
+    const response = await fetch(`${BACKEND_URL}/exams/${examId}`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json",
+                  "Authorization": `Bearer ${adminToken}`
+      },
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      console.log("Exam fetched successfully:", data);
+      return data;
+    }
+    else {
+      throw new Error(data.message || "Failed to fetch exam");
+    }
+  } catch (error) {
+    console.error("Error fetching exam:", error);
+    throw error;
+  }
+}

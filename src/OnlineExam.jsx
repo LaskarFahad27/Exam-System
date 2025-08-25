@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Clock, AlertCircle, CheckCircle, ArrowRight, User, Shield, BookOpen, Calculator, Edit, Menu } from 'lucide-react';
-import logo from "../src/assets/logo.png"
+import logo from "../src/assets/logo.png";
+import { Upload } from 'lucide-react';
 
 const OnlineExam = () => {
   const [timeLeft, setTimeLeft] = useState(2400); // 40 minutes for English
@@ -11,6 +12,8 @@ const OnlineExam = () => {
    const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
+  const fileInputRef = useRef(null);
 
   // English Questions
   const englishQuestions = [
@@ -217,6 +220,27 @@ const OnlineExam = () => {
     };
   }, []);
 
+  const handleDrag = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(e.type === "dragenter" || e.type === "dragover");
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files?.[0]) {
+      console.log('Files dropped:', e.dataTransfer.files);
+    }
+  };
+
+  const handleChange = (e) => {
+    if (e.target.files?.[0]) {
+      console.log('Files selected:', e.target.files);
+    }
+  };
+
   // Section Completed Screen
   if (examSubmitted) {
     return (
@@ -387,6 +411,50 @@ const OnlineExam = () => {
                   })}
                 </div>
               ) : (
+                <>
+                <div className="w-full max-w-lg mx-auto p-6">
+      <div
+        className={`border-2 border-dashed rounded-xl p-8 text-center transition-all duration-300 cursor-pointer ${
+          dragActive
+            ? 'border-blue-500 bg-blue-50 scale-105'
+            : 'border-gray-300 bg-gray-50 hover:border-blue-400 hover:bg-blue-50'
+        }`}
+        onDragEnter={handleDrag}
+        onDragLeave={handleDrag}
+        onDragOver={handleDrag}
+        onDrop={handleDrop}
+        onClick={() => fileInputRef.current?.click()}
+      >
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept="image/*"
+          onChange={handleChange}
+          className="hidden"
+        />
+        
+        <div className="flex flex-col items-center space-y-4">
+          <div className={`p-4 rounded-full transition-all duration-300 ${
+            dragActive ? 'bg-blue-100' : 'bg-white'
+          }`}>
+            <Upload className={`w-12 h-12 transition-colors duration-300 ${
+              dragActive ? 'text-blue-600' : 'text-gray-400'
+            }`} />
+          </div>
+          
+          <div>
+            <h3 className="text-lg font-semibold text-gray-700 mb-2">
+              {dragActive ? 'Drop your files here!' : 'Upload Essay Pictures'}
+            </h3>
+            <p className="text-gray-500 mb-4">Drag & drop or click to browse</p>
+            <div className="bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 transform hover:scale-105 transition-all duration-200 shadow-lg">
+              Browse Files
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
                 <textarea
                   rows={6}
                   value={answers[question.id] || ''}
@@ -394,6 +462,7 @@ const OnlineExam = () => {
                   placeholder="Write your essay here..."
                   className="w-full border rounded-lg p-3 mt-4"
                 />
+                </>
               )}
 
               {isAnswered && (

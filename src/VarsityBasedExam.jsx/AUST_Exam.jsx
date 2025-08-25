@@ -6,28 +6,18 @@ import {
   Menu,
   X
 } from 'lucide-react';
-import logo from "../src/assets/logo.png"
+import logo from "../assets/logo.png"
 
-const NSU_Exam = () => {
+const AUST_Exam = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [isLogin, setIsLogin] = useState(true);
-  const [phone, setPhone] = useState('');
-  const [password, setPassword] = useState('');
   const navigate = useNavigate();
 
-    const handleGo = () => {
-    if (name && email) {
-      navigate("/online_exam");
-    } else {
-      alert("Please fill in both Name and Email fields.");
-    }
+  const startExam = () => {
+    navigate("/online_exam"); 
   };
 
   const adminLogin = () => {
-    navigate("/admin"); 
+    navigate("/adminlogin"); 
   };
 
   return (
@@ -87,11 +77,14 @@ const NSU_Exam = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6 leading-tight">
-             <span className="text-blue-600">NSU </span>Standard Online Exam
+              Smart, Secure & <span className="text-blue-600">University-Style</span> Online Exams
             </h1>
+            <p className="text-xl md:text-2xl text-gray-700 mb-8 max-w-4xl mx-auto">
+              AUST Exam System Is Under Development. It Will Be Launched Soon
+            </p>
           </div>
           
-          <div className="mt-16 relative">
+          {/* <div className="mt-16 relative">
             <div className="bg-white rounded-lg shadow-2xl p-8 max-w-4xl mx-auto">
               <div className="flex items-center space-x-4 mb-6">
                 <div className="flex space-x-2">
@@ -99,7 +92,7 @@ const NSU_Exam = () => {
                   <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
                   <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                 </div>
-                <span className="text-gray-500 text-sm">Exam Pattern</span>
+                <span className="text-gray-500 text-sm">Online Examination System</span>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div>
@@ -168,105 +161,13 @@ const NSU_Exam = () => {
           </div><br/><br/>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <button className="bg-blue-600 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-blue-700 transform hover:scale-105 transition-all duration-200 shadow-lg"
-                      onClick ={() => setIsModalOpen(true)}>
+                      onClick={startExam}>
                    Start Exam
                 <ChevronRight className="inline-block ml-2 w-5 h-5" />
               </button>
-            </div>
+            </div> */}
         </div>
       </section>
-
-      {/* Modal */}
-{isModalOpen && (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div className="bg-white rounded-lg shadow-lg p-6 w-96">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold text-gray-900">
-          {isLogin ? "Login" : "Register"}
-        </h2>
-        <button
-          className="text-gray-500 hover:text-gray-700"
-          onClick={() => setIsModalOpen(false)}
-        >
-          <X className="w-5 h-5" />
-        </button>
-      </div>
-      {isLogin ? (
-        // Login Form
-        <div className="space-y-4">
-          <input
-            type="text"
-            placeholder="Email or Phone"
-            className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
-          />
-          <input
-            type="password"
-            placeholder="Password"
-            className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
-          />
-          <div className="flex justify-end mt-6">
-            <button
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              onClick={handleGo}
-            >
-              Login
-            </button>
-          </div>
-          <p className="text-sm text-center text-gray-600 mt-4">
-            Don't registered?{" "}
-            <button
-              className="text-blue-600 hover:underline"
-              onClick={() => setIsLogin(false)}
-            >
-              Register
-            </button>
-          </p>
-        </div>
-      ) : (
-        // Register Form
-        <div className="space-y-4">
-          <input
-            type="text"
-            placeholder="Name"
-            className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
-          />
-          <input
-            type="email"
-            placeholder="Email"
-            className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
-          />
-          <input
-            type="text"
-            placeholder="Phone"
-            className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
-          />
-          <input
-            type="password"
-            placeholder="Password"
-            className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
-          />
-          <div className="flex justify-end mt-6">
-            <button
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              onClick={handleGo}
-            >
-              Register
-            </button>
-          </div>
-          <p className="text-sm text-center text-gray-600 mt-4">
-            Already registered?{" "}
-            <button
-              className="text-blue-600 hover:underline"
-              onClick={() => setIsLogin(true)}
-            >
-              Login
-            </button>
-          </p>
-        </div>
-      )}
-    </div>
-  </div>
-)}
       {/* Footer */}
 <footer className="bg-gray-800 text-white py-6 mt-12">
   <div className="max-w-7xl mx-auto px-4 text-center">
@@ -278,4 +179,4 @@ const NSU_Exam = () => {
   );
 };
 
-export default NSU_Exam;
+export default AUST_Exam;
