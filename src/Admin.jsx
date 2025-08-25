@@ -62,7 +62,8 @@ const AdminPanel = () => {
       if (examData.success) {
         const exam = examData.data;
         setCurrentExamData(exam);
-        setExamId(exam.id);
+        setExamId(exam.id); // Set the exam ID
+        console.log("Setting exam ID to:", exam.id);
         setIsEditingExam(true);
         setExamCreated(true);
         
@@ -194,25 +195,31 @@ const AdminPanel = () => {
 
 
   const handleCreateSection = async() => {
-    // Skip section creation if we're editing an existing exam (sections already exist)
-    if (isEditingExam) {
-      return;
-    }
-
+    console.log("Creating section:", activeSection);
+    console.log("Exam ID:", examId);
+    console.log("Time limit:", examForm[activeSection].timeLimit);
+    console.log("Sequence order:", examForm[activeSection].sequenceOrder);
+    
+    // Check if time and sequence order are provided
     if (examForm[activeSection].timeLimit && examForm[activeSection].sequenceOrder) {
-    try {
-      const res = await createSection(activeSection, examId, examForm[activeSection].timeLimit, examForm[activeSection].sequenceOrder);
-      if(res.success){
-        setSectionCreated(prev => ({
-          ...prev,
-          [activeSection]: true
-        }));
-        setSectionId(res.data.section.id);
+      try {
+        const res = await createSection(activeSection, examId, examForm[activeSection].timeLimit, examForm[activeSection].sequenceOrder);
+        console.log("Create section response:", res);
+        if(res.success){
+          setSectionCreated(prev => ({
+            ...prev,
+            [activeSection]: true
+          }));
+          setSectionId(res.data.section.id);
+          toast.success(`${activeSection.charAt(0).toUpperCase() + activeSection.slice(1)} section created successfully!`);
+        }
+      } catch (error) {
+        console.error("Failed to create section:", error);
+        toast.error("Failed to create section");
       }
-    } catch (error) {
-      console.error("Failed to create section:", error);
+    } else {
+      toast.error("Please provide both duration and sequence order");
     }
-  }
   }
 
  const addQuestion = async(section, newQuestion) => {
@@ -723,7 +730,12 @@ const AdminPanel = () => {
 
         <button
           onClick={handleCreateSection}
-          className="ml-3 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+          disabled={!examForm.english.timeLimit || !examForm.english.sequenceOrder}
+          className={`ml-3 ${
+            !examForm.english.timeLimit || !examForm.english.sequenceOrder
+              ? "bg-gray-400 cursor-not-allowed"
+              : "bg-blue-600 hover:bg-blue-700"
+          } text-white px-4 py-2 rounded-lg transition-colors`}
         >
           Create Section
         </button>
@@ -782,7 +794,12 @@ const AdminPanel = () => {
         <br />
         <button
           onClick={handleCreateSection}
-          className="ml-3 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
+          disabled={!examForm.math.timeLimit || !examForm.math.sequenceOrder}
+          className={`ml-3 ${
+            !examForm.math.timeLimit || !examForm.math.sequenceOrder
+              ? "bg-gray-400 cursor-not-allowed"
+              : "bg-green-600 hover:bg-green-700"
+          } text-white px-4 py-2 rounded-lg transition-colors`}
         >
           Create Section
         </button>
@@ -841,7 +858,12 @@ const AdminPanel = () => {
         <br />
         <button
           onClick={handleCreateSection}
-          className="ml-3 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700"
+          disabled={!examForm.reading.timeLimit || !examForm.reading.sequenceOrder}
+          className={`ml-3 ${
+            !examForm.reading.timeLimit || !examForm.reading.sequenceOrder
+              ? "bg-gray-400 cursor-not-allowed"
+              : "bg-purple-600 hover:bg-purple-700"
+          } text-white px-4 py-2 rounded-lg transition-colors`}
         >
           Create Section
         </button>
@@ -900,7 +922,12 @@ const AdminPanel = () => {
         <br />
         <button
           onClick={handleCreateSection}
-          className="ml-3 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+          disabled={!examForm.essay.timeLimit || !examForm.essay.sequenceOrder}
+          className={`ml-3 ${
+            !examForm.essay.timeLimit || !examForm.essay.sequenceOrder
+              ? "bg-gray-400 cursor-not-allowed"
+              : "bg-blue-600 hover:bg-blue-700"
+          } text-white px-4 py-2 rounded-lg transition-colors`}
         >
           Create Section
         </button>
