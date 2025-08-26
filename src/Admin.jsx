@@ -13,10 +13,8 @@ const AdminPanel = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeTab, setActiveTab] = useState('students');
   const navigate = useNavigate();
-  const [students, setStudents] = useState([
-    { id: 'STU001', name: 'John Doe', email: 'john@example.com', enrolledDate: '2024-01-15' },
-    { id: 'STU002', name: 'Jane Smith', email: 'jane@example.com', enrolledDate: '2024-01-20' }
-  ]);
+  const [students, setStudents] = useState([]);
+  const [isLoadingStudents, setIsLoadingStudents] = useState(false);
   const [exams, setExams] = useState([]);
   const [showStudentForm, setShowStudentForm] = useState(false);
   const [showExamForm, setShowExamForm] = useState(false);
@@ -169,6 +167,46 @@ const AdminPanel = () => {
 
     fetchExams();
   }, []);
+
+  useEffect(() => {
+    const fetchStudents = async () => {
+      if (activeTab === 'students') {
+        setIsLoadingStudents(true);
+        try {
+          const adminToken = localStorage.getItem("adminToken");
+          if (!adminToken) {
+            toast.error("Authentication required");
+            setIsLoadingStudents(false);
+            return;
+          }
+
+          const response = await fetch(`${BACKEND_URL}/auth/users`, {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${adminToken}`
+            },
+          });
+          
+          const data = await response.json();
+          
+          if (response.ok && data.success) {
+            setStudents(data.data);
+            console.log("Students fetched successfully:", data.data);
+          } else {
+            toast.error(data.message || "Failed to fetch students");
+          }
+        } catch (error) {
+          console.error("Error fetching students:", error);
+          toast.error("Failed to load students");
+        } finally {
+          setIsLoadingStudents(false);
+        }
+      }
+    };
+
+    fetchStudents();
+  }, [activeTab]);
 
 
   const handleAddStudent = () => {
@@ -375,8 +413,36 @@ const AdminPanel = () => {
     });
   };
 
-  const deleteStudent = (id) => {
-    setStudents(students.filter(student => student.id !== id));
+  const deleteStudent = async (id) => {
+    if (window.confirm("Are you sure you want to delete this student?")) {
+      try {
+        const adminToken = localStorage.getItem("adminToken");
+        if (!adminToken) {
+          toast.error("Authentication required");
+          return;
+        }
+
+        const response = await fetch(`${BACKEND_URL}/auth/users/${id}`, {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${adminToken}`
+          },
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+          setStudents(students.filter(student => student.id !== id));
+          toast.success("Student deleted successfully");
+        } else {
+          toast.error(data.message || "Failed to delete student");
+        }
+      } catch (error) {
+        console.error("Error deleting student:", error);
+        toast.error("Failed to delete student");
+      }
+    }
   };
 
   const handleDeleteExam = (exam) => {
@@ -491,25 +557,56 @@ const AdminPanel = () => {
 
             {/* Students Grid */}
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {students.map((student) => (
-                <div key={student.id} className="bg-white rounded-lg p-6 shadow-md hover:shadow-lg transition-shadow">
-                  <div className="flex justify-between items-start mb-4">
-                    <div className="bg-blue-100 w-12 h-12 rounded-full flex items-center justify-center">
-                      <Users className="w-6 h-6 text-blue-600" />
-                    </div>
-                    <button
-                      onClick={() => deleteStudent(student.id)}
-                      className="text-red-500 hover:text-red-700 transition-colors"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
+              {isLoadingStudents ? (
+                <div className="col-span-3 text-center py-8">
+                  <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-blue-600 border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]" role="status">
+                    <span className="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">Loading...</span>
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-800 mb-2">{student.name}</h3>
-                  <p className="text-gray-600 text-sm mb-1">ID: {student.id}</p>
-                  <p className="text-gray-600 text-sm mb-1">Email: {student.email}</p>
-                  <p className="text-gray-600 text-sm">Enrolled: {student.enrolledDate}</p>
+                  <p className="mt-2 text-gray-600">Loading students...</p>
                 </div>
-              ))}
+              ) : students.length > 0 ? (
+                students.map((student) => (
+                  <div key={student.uuid} className="bg-white rounded-lg p-6 shadow-md hover:shadow-lg transition-shadow border border-gray-200">
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="bg-blue-100 w-12 h-12 rounded-full flex items-center justify-center">
+                        <Users className="w-6 h-6 text-blue-600" />
+                      </div>
+                      <button
+                        onClick={() => deleteStudent(student.id)}
+                        className="text-red-500 hover:text-red-700 transition-colors"
+                        title="Delete Student"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-800 mb-3">{student.name}</h3>
+                    <div className="space-y-2">
+                      <div className="flex items-center text-gray-600 text-sm">
+                        <span className="font-medium mr-2">ID:</span> {student.id}
+                      </div>
+                      <div className="flex items-center text-gray-600 text-sm">
+                        <span className="font-medium mr-2">Email:</span> {student.email}
+                      </div>
+                      <div className="flex items-center text-gray-600 text-sm">
+                        <span className="font-medium mr-2">Phone:</span> {student.phone || 'N/A'}
+                      </div>
+                      <div className="flex items-center text-gray-600 text-sm">
+                        <span className="font-medium mr-2">Role:</span> 
+                        <span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full text-xs font-medium">
+                          {student.role}
+                        </span>
+                      </div>
+                      <div className="flex items-center text-gray-600 text-sm">
+                        <span className="font-medium mr-2">Joined:</span> {new Date(student.created_at).toLocaleDateString()}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="col-span-3 text-center py-8">
+                  <p className="text-gray-500">No students found</p>
+                </div>
+              )}
             </div>
           </div>
         )}
