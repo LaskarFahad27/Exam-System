@@ -1,0 +1,141 @@
+/* Enhanced styles for Math MCQ Maker */
+.math-symbol-button {
+  transition: all 0.2s ease;
+  font-family: 'Times New Roman', serif;
+}
+
+.math-symbol-button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.math-field-container {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.math-field-container .mq-editable-field {
+  width: 100%;
+  min-height: 35px;
+  font-size: 16px;
+  border: none !important;
+  outline: none !important;
+  background: transparent !important;
+  padding: 4px;
+}
+
+.math-field-container .mq-editable-field.mq-focused {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Better focus indication for the container */
+.math-field-container:focus-within {
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+  border-color: #3b82f6 !important;
+  outline: none;
+}
+
+/* Make math fields more interactive */
+.math-field-container:hover {
+  border-color: #9ca3af;
+}
+
+.symbol-palette {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.symbol-palette::-webkit-scrollbar {
+  width: 6px;
+}
+
+.symbol-palette::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+.symbol-palette::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 10px;
+}
+
+.symbol-palette::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Category tab styling */
+.category-tab {
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* Math symbol grid responsive adjustments */
+.symbol-grid {
+  gap: 8px;
+}
+
+/* Modal overlay */
+.modal-overlay {
+  backdrop-filter: blur(2px);
+}
+
+/* Modal animation */
+.modal-content {
+  animation: modalFadeIn 0.2s ease-out;
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Symbol button hover effects */
+.symbol-btn:hover {
+  background-color: #dbeafe;
+  border-color: #3b82f6;
+  transform: translateY(-1px);
+}
+
+/* Ensure keyboard input works properly */
+.math-field-container .mq-editable-field .mq-cursor {
+  border-left: 1px solid #333;
+  animation: blink 1s infinite;
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+@media (max-width: 640px) {
+  .symbol-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (min-width: 641px) and (max-width: 768px) {
+  .symbol-grid {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .symbol-grid {
+    grid-template-columns: repeat(8, 1fr);
+  }
+}
+
+@media (min-width: 1025px) {
+  .symbol-grid {
+    grid-template-columns: repeat(10, 1fr);
+  }
+}

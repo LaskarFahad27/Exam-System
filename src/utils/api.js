@@ -32,6 +32,37 @@ export async function getExams() {
   }
 }
 
+export async function getExamsForUser() {
+
+    const studentToken = localStorage.getItem("studentToken");
+
+  if (!studentToken) {
+    throw new Error("Authentication required");
+  }
+
+  try {
+    const response = await fetch(`${BACKEND_URL}/exams`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json",
+                  "Authorization": `Bearer ${studentToken}`
+      },
+    });
+    
+    const data = await response.json();
+    
+    if (response.ok) {
+      console.log("Exams fetched successfully for student:", data);
+      return data;
+    }
+    else {
+      throw new Error(data.message || "Failed to fetch exams for student");
+    }
+  } catch (error) {
+    console.error("Error fetching exams for student:", error);
+    throw error;
+  }
+}
+
 export async function createExam(title, description) {
   
     const adminToken = localStorage.getItem("adminToken");
@@ -155,11 +186,6 @@ export async function dropExam(examId) {
       headers: { "Content-Type": "application/json",
                   "Authorization": `Bearer ${adminToken}`
       },
-      // body: JSON.stringify({
-      //   name,
-      //   duration_minutes: time,
-      //   sequence_order: order
-      // }),
     });
     
     const data = await response.json();
@@ -169,10 +195,52 @@ export async function dropExam(examId) {
       return data;
     }
     else {
-      throw new Error(data.message || "Failed to delete exam1");
+      // Enhanced error handling for foreign key constraints
+      if (data.message && data.message.includes('foreign key constraint')) {
+        throw new Error("Cannot delete exam: Students have already taken this exam. Please contact system administrator to handle exam deletion with existing student records.");
+      }
+      throw new Error(data.message || "Failed to delete exam");
     }
   } catch (error) {
     console.error("Error deleting exam:", error);
+    
+    // Handle different types of errors
+    if (error.message.includes('foreign key constraint')) {
+      throw new Error("Cannot delete exam: This exam has student attempts. Please contact system administrator.");
+    }
+    
+    throw error;
+  }
+}
+
+export async function forceDropExam(examId) {
+  const adminToken = localStorage.getItem("adminToken");
+
+  if (!adminToken) {
+    throw new Error("Authentication required");
+  }
+
+  try {
+    // Try to force delete (backend should handle cascading)
+    const response = await fetch(`${BACKEND_URL}/exams/${examId}/force-delete`, {
+      method: "DELETE",
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${adminToken}`
+      },
+    });
+    
+    const data = await response.json();
+    
+    if (response.ok) {
+      console.log("Exam force deleted successfully:", data);
+      return data;
+    }
+    else {
+      throw new Error(data.message || "Failed to force delete exam");
+    }
+  } catch (error) {
+    console.error("Error force deleting exam:", error);
     throw error;
   }
 }
@@ -260,6 +328,107 @@ export async function fetchExamsById(examId) {
     }
   } catch (error) {
     console.error("Error fetching exam:", error);
+    throw error;
+  }
+}
+
+export async function startExam(examId) {
+  const studentToken = localStorage.getItem("studentToken");
+
+  if (!studentToken) {
+    throw new Error("Authentication required");
+  }
+
+  try {
+    const response = await fetch(`${BACKEND_URL}/user-exams/${examId}/start`, {
+      method: "POST",
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${studentToken}`
+      },
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      console.log("Exam started successfully:", data);
+      return data;
+    }
+    else {
+      throw new Error(data.message || "Failed to start exam");
+    }
+  } catch (error) {
+    console.error("Error starting exam:", error);
+    throw error;
+  }
+}
+
+export async function getNextSection(userExamId) {
+  const studentToken = localStorage.getItem("studentToken");
+
+  if (!studentToken) {
+    throw new Error("Authentication required");
+  }
+
+  try {
+    const response = await fetch(`${BACKEND_URL}/user-exams/${userExamId}/next-section`, {
+      method: "GET",
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${studentToken}`
+      },
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      console.log("Next section fetched successfully:", data);
+      return data;
+    }
+    else {
+      throw new Error(data.message || "Failed to fetch next section");
+    }
+  } catch (error) {
+    console.error("Error fetching next section:", error);
+    throw error;
+  }
+}
+
+export async function submitSectionAnswers(userExamId, sectionId, answers) {
+  const studentToken = localStorage.getItem("studentToken");
+
+  if (!studentToken) {
+    throw new Error("Authentication required");
+  }
+
+  const payload = { answers };
+  console.log('API Request:', {
+    url: `${BACKEND_URL}/user-exams/${userExamId}/section/${sectionId}/submit`,
+    method: 'POST',
+    payload: payload
+  });
+
+  try {
+    const response = await fetch(`${BACKEND_URL}/user-exams/${userExamId}/section/${sectionId}/submit`, {
+      method: "POST",
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${studentToken}`
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      console.log("Section answers submitted successfully:", data);
+      return data;
+    }
+    else {
+      throw new Error(data.message || "Failed to submit answers");
+    }
+  } catch (error) {
+    console.error("Error submitting answers:", error);
     throw error;
   }
 }

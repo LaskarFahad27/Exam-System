@@ -99,7 +99,9 @@ const LogRegModal = ({ isOpen, onClose }) => {
         setLoginId('');
         setPassword('');
         toast.success("Logged in successfully");
-        navigate("/online_exam");
+        localStorage.setItem("studentToken", data.data.token);
+        onClose(); // Close the modal
+        navigate("/exam-selection");
       } else {
         throw new Error(data.message || 'Login failed');
         toast.error("Failed to login");

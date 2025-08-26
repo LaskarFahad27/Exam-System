@@ -165,31 +165,22 @@ const OnlineExam = () => {
 
   // Timer effect
   useEffect(() => {
-    if (timeLeft > 0 && !examCompleted && !submitting && currentSection) {
+    if (timeLeft > 0 && !examCompleted && !submitting) {
       const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
       return () => clearTimeout(timer);
-    } else if (timeLeft === 0 && !examCompleted && !submitting && currentSection) {
+    } else if (timeLeft === 0 && !examCompleted && !submitting) {
       // Time's up, auto-submit current section
       handleSubmitSection(true);
     }
-  }, [timeLeft, examCompleted, submitting, currentSection]);
+  }, [timeLeft, examCompleted, submitting]);
 
   const loadNextSection = async () => {
     try {
       setLoading(true);
-      console.log('Loading next section for userExamId:', userExamId);
-      
       const response = await getNextSection(userExamId);
       
       if (response.success) {
         const { section, questions, total_sections, current_section_number, sections_completed } = response.data;
-        
-        console.log('Next section loaded:', {
-          sectionName: section.name,
-          currentSectionNumber: current_section_number,
-          totalSections: total_sections,
-          sectionsCompleted: sections_completed
-        });
         
         setCurrentSection(section);
         setQuestions(questions);
@@ -201,30 +192,12 @@ const OnlineExam = () => {
       }
     } catch (error) {
       console.error('Error loading section:', error);
-      
-      // More specific error handling
-      if (error.message.includes('No more sections')) {
-        console.log('No more sections available - exam completed');
+      if (error.message.includes('No more sections') || error.message.includes('completed')) {
         setExamCompleted(true);
         toast.success('Exam completed successfully!');
-      } else if (error.message.includes('completed')) {
-        console.log('Exam already completed');
-        setExamCompleted(true);
-        toast.success('Exam completed successfully!');
-      } else if (error.message.includes('access this section yet')) {
-        console.log('Cannot access next section - likely exam completed');
-        // Wait a bit longer before marking as completed, might be a timing issue
-        setTimeout(() => {
-          setExamCompleted(true);
-          toast.success('Exam completed successfully!');
-        }, 2000);
-      } else if (error.message.includes('Authentication')) {
-        toast.error('Session expired. Please login again.');
-        localStorage.removeItem('studentToken');
-        navigate('/');
       } else {
         toast.error('Failed to load section: ' + error.message);
-        console.error('Unexpected error in loadNextSection:', error);
+        navigate('/exam-selection');
       }
     } finally {
       setLoading(false);
@@ -239,27 +212,14 @@ const OnlineExam = () => {
   };
 
   const handleSubmitSection = async (autoSubmit = false) => {
-    // Add null check for currentSection
-    if (!currentSection) {
-      console.error('No current section available');
-      toast.error('No section available to submit');
-      return;
-    }
-
     try {
       setSubmitting(true);
       
-      // Format answers for API - using correct format with answer_text
+      // Format answers for API
       const formattedAnswers = Object.entries(answers).map(([questionId, answer]) => ({
         question_id: parseInt(questionId),
-        answer_text: answer
+        answer: answer
       }));
-
-      console.log('Submitting answers:', {
-        userExamId,
-        sectionId: currentSection.id,
-        answers: formattedAnswers
-      });
 
       await submitSectionAnswers(userExamId, currentSection.id, formattedAnswers);
       
@@ -269,17 +229,13 @@ const OnlineExam = () => {
         toast.success('Section submitted successfully!');
       }
 
-      console.log('Section submitted. Current section:', currentSectionNumber, 'Total sections:', totalSections);
-
       // Check if there are more sections
       if (currentSectionNumber < totalSections) {
-        console.log('Loading next section...');
         // Load next section after a brief delay
         setTimeout(() => {
           loadNextSection();
         }, 1500);
       } else {
-        console.log('All sections completed');
         // Exam completed
         setExamCompleted(true);
         toast.success('Exam completed successfully!');
@@ -495,11 +451,11 @@ const OnlineExam = () => {
         <div className="text-center mt-8">
           <button 
             onClick={() => handleSubmitSection(false)} 
-            disabled={submitting || !currentSection}
+            disabled={submitting}
             className="px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg font-medium text-lg flex items-center justify-center mx-auto space-x-2"
           >
             <span>
-              {currentSectionNumber === totalSections ? 'Submit Final Section' : `Submit ${currentSection?.name || 'Current'} Section`}
+              {currentSectionNumber === totalSections ? 'Submit Final Section' : `Submit ${currentSection?.name} Section`}
             </span>
             <ArrowRight className="w-5 h-5"/>
           </button>

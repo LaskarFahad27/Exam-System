@@ -3,9 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { Users, BookOpen, Plus, Edit3, Trash2, Eye, EyeOff, GraduationCap, FileText, Calculator, Book, PenTool, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { BACKEND_URL } from './utils/api';
-import { getExams, createExam, createSection, createQuestions, dropExam, fetchExamsById, deleteQuestion, deleteSection } from './utils/api';
+import { getExams, createExam, createSection, createQuestions, dropExam, forceDropExam, fetchExamsById, deleteQuestion, deleteSection } from './utils/api';
 import MCQMaker from './MCQMaker';
+import MathMCQMaker from './MathMCQMaker';
 import QuestionsList from './QuestionsList';
+import MathQuestionsList from './MathQuestionsList';
 
 const AdminPanel = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -391,7 +393,30 @@ const AdminPanel = () => {
       toast.success('Exam deleted successfully!');
     } catch (error) {
       console.error("Failed to delete exam:", error);
-      toast.error('Failed to delete exam');
+      
+      // Handle foreign key constraint error specifically
+      if (error.message.includes('student attempts') || error.message.includes('foreign key constraint')) {
+        // Show a more detailed confirmation dialog for force delete
+        const forceDelete = window.confirm(
+          `This exam cannot be deleted because students have already taken it.\n\n` +
+          `Do you want to FORCE DELETE this exam?\n` +
+          `WARNING: This will permanently delete the exam and all related student records!\n\n` +
+          `Click OK to force delete, or Cancel to keep the exam.`
+        );
+        
+        if (forceDelete) {
+          try {
+            await forceDropExam(examToDelete.id);
+            setExams(exams.filter(exam => exam.id !== examToDelete.id));
+            toast.success('Exam force deleted successfully!');
+          } catch (forceError) {
+            console.error("Failed to force delete exam:", forceError);
+            toast.error('Failed to force delete exam: ' + forceError.message);
+          }
+        }
+      } else {
+        toast.error('Failed to delete exam: ' + error.message);
+      }
     } finally {
       setShowExamDeleteConfirm(false);
       setExamToDelete(null);
@@ -808,9 +833,9 @@ const AdminPanel = () => {
 
     {activeSection === 'math' && sectionCreated.math && (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <MCQMaker activeSection={activeSection} addQuestion={addQuestion} />
+        <MathMCQMaker activeSection={activeSection} addQuestion={addQuestion} />
          
-          <QuestionsList
+          <MathQuestionsList
             activeSection={activeSection}
             examForm={examForm}
             removeQuestion={removeQuestion}

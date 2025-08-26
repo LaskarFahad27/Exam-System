@@ -1,5 +1,6 @@
 import { Routes, Route } from "react-router-dom";
 import { Toaster } from 'react-hot-toast';
+import './App.css';
 import NSU_Exam from "./VarsityBasedExam.jsx/NSU_Exam";
 import BRACU_Exam from "./VarsityBasedExam.jsx/BRACU_Exam";
 import AUST_Exam from "./VarsityBasedExam.jsx/AUST_Exam";
@@ -7,6 +8,7 @@ import OnlineExam from "./OnlineExam";
 import AdminLogin from "./AdminLogin";
 import AdminPanel from "./Admin";
 import LandingPage from "./LandingPage";
+import ExamSelectionPage from "./ExamSelectionPage";
 
 function App() {
   return (
@@ -19,6 +21,7 @@ function App() {
       <Route path="/exam/aust" element={<AUST_Exam />} />
       {/* <Route path="/exam/ewu" element={<EWU_Exam />} />
       <Route path="/exam/uiu" element={<UIU_Exam />} /> */}
+      <Route path="/exam-selection" element={<ExamSelectionPage />} />
       <Route path="/online_exam" element={<OnlineExam />} />
       <Route path="/adminlogin" element={<AdminLogin />} />
       <Route path="/admin" element={<AdminPanel />} />
