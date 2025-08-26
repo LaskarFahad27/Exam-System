@@ -15,20 +15,22 @@ import Footer from "./components/Footer";
 
 function App() {
   return (
-    <div className="pb-24">
+    <div className="flex flex-col min-h-screen">
       <Toaster/>
-      <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/exam/nsu" element={<NSU_Exam />} />
-        <Route path="/exam/bracu" element={<BRACU_Exam />} />
-        <Route path="/exam/aust" element={<AUST_Exam />} />
-        <Route path="/exam/ewu" element={<EWU_Exam />} />
-      <Route path="/exam/uiu" element={<UIU_Exam />} /> 
-        <Route path="/exam-selection" element={<ExamSelectionPage />} />
-        <Route path="/online_exam" element={<OnlineExam />} />
-        <Route path="/adminlogin" element={<AdminLogin />} />
-        <Route path="/admin" element={<AdminPanel />} />
-      </Routes>
+      <main className="flex-grow">
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/exam/nsu" element={<NSU_Exam />} />
+          <Route path="/exam/bracu" element={<BRACU_Exam />} />
+          <Route path="/exam/aust" element={<AUST_Exam />} />
+          <Route path="/exam/ewu" element={<EWU_Exam />} />
+          <Route path="/exam/uiu" element={<UIU_Exam />} /> 
+          <Route path="/exam-selection" element={<ExamSelectionPage />} />
+          <Route path="/online_exam" element={<OnlineExam />} />
+          <Route path="/adminlogin" element={<AdminLogin />} />
+          <Route path="/admin" element={<AdminPanel />} />
+        </Routes>
+      </main>
       <Footer />
     </div>
   );

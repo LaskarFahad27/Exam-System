@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from "react-router-dom";
 import Header from './components/Header';
-import Footer from './components/Footer';
+
+// Import university logos
+import { nsuLogo, bracuLogo, austLogo, ewuLogo, uiuLogo } from './assets/universityLogos';
 
 const LandingPage = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -17,13 +19,13 @@ const LandingPage = () => {
     navigate("/adminlogin"); 
   };
 
-  // University data with images and names
+  // University data with logos and names
   const universities = [
-    { id: 'nsu', name: 'North South University', path: '/exam/nsu', image: '/universities/nsu.jpg' },
-    { id: 'bracu', name: 'BRAC University', path: '/exam/bracu', image: '/universities/bracu.jpg' },
-    { id: 'aust', name: 'Ahsanullah University of Science and Technology', path: '/exam/aust', image: '/universities/aust.jpg' },
-    { id: 'ewu', name: 'East West University', path: '/exam/ewu', image: '/universities/ewu.jpg' },
-    { id: 'uiu', name: 'United International University', path: '/exam/uiu', image: '/universities/uiu.jpg' },
+    { id: 'nsu', name: 'North South University', path: '/exam/nsu', image: nsuLogo },
+    { id: 'bracu', name: 'BRAC University', path: '/exam/bracu', image: bracuLogo },
+    { id: 'aust', name: 'Ahsanullah University of Science and Technology', path: '/exam/aust', image: austLogo },
+    { id: 'ewu', name: 'East West University', path: '/exam/ewu', image: ewuLogo },
+    { id: 'uiu', name: 'United International University', path: '/exam/uiu', image: uiuLogo },
   ];
 
   return (
@@ -59,15 +61,11 @@ const LandingPage = () => {
                 className="bg-white rounded-xl shadow-lg overflow-hidden transition-transform duration-300 hover:shadow-xl hover:-translate-y-2 cursor-pointer"
                 onClick={() => navigate(university.path)}
               >
-                <div className="h-48 bg-gray-200 overflow-hidden">
+                <div className="h-48 bg-gray-50 flex items-center justify-center p-6 overflow-hidden">
                   <img 
                     src={university.image} 
                     alt={university.name} 
-                    onError={(e) => {
-                      e.target.src = '/public/image.png'; // Fallback image
-                      e.target.onerror = null;
-                    }}
-                    className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
+                    className="w-full h-full object-contain transition-all duration-500 hover:scale-110"
                   />
                 </div>
                 <div className="p-6">
@@ -120,9 +118,6 @@ const LandingPage = () => {
           </div>
         </div>
       </section>
-
-      {/* Footer */}
-      <Footer />
     </div>
   );
 };
