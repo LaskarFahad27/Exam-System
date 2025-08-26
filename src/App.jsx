@@ -17,7 +17,17 @@ import ScrollToTop from "./components/ScrollToTop";
 function App() {
   return (
     <div className="flex flex-col min-h-screen">
-      <Toaster/>
+      <Toaster
+        position="top-center"
+        toastOptions={{
+          duration: 2000,
+          style: {
+            padding: '12px 16px',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+          },
+        }}
+      />
       <ScrollToTop />
       <main className="flex-grow">
         <Routes>

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import toastService from './utils/toast.jsx';
 
 const MCQMaker = ({ activeSection, addQuestion }) => {
   const [questionForm, setQuestionForm] = useState({
@@ -15,7 +16,7 @@ const MCQMaker = ({ activeSection, addQuestion }) => {
 
   const handleAddQuestion = () => {
     if (!questionForm.question.trim()) {
-      alert("Please enter a question!");
+      toastService.error("Please enter a question!");
       return;
     }
 

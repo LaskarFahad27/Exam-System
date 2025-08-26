@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Users, BookOpen, Plus, Edit3, Trash2, Eye, EyeOff, GraduationCap, FileText, Calculator, Book, PenTool, X } from 'lucide-react';
+import toastService from './utils/toast.jsx';
 
 const AdminPanel = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -43,7 +44,7 @@ const AdminPanel = () => {
     if (credentials.username === 'campuspro' && credentials.password === '1234') {
       setIsAuthenticated(true);
     } else {
-      alert('Invalid credentials! Please try again.');
+      toastService.error('Invalid credentials! Please try again.');
     }
   };
 

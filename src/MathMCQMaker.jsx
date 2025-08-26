@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { addStyles, EditableMathField } from "./components/MathLiveWrapper";
+import toastService from './utils/toast.jsx';
 
 // MathLive styles are loaded automatically
 addStyles();
@@ -232,7 +233,7 @@ const MathMCQMaker = ({ activeSection, addQuestion }) => {
 
   const handleAddQuestion = () => {
     if (!questionForm.questionLatex.trim() && !questionForm.questionText.trim()) {
-      alert("Please enter a question!");
+      toastService.error("Please enter a question!");
       return;
     }
 

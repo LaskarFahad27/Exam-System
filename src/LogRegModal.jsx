@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { X, Mail, Phone, Lock, User, LogIn, UserPlus } from 'lucide-react';
-import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
 import { BACKEND_URL } from './utils/api';
+import toastService from './utils/toast.jsx';
 
 const LogRegModal = ({ isOpen, onClose }) => {
   const [isLogin, setIsLogin] = useState(true);
@@ -76,13 +76,13 @@ const LogRegModal = ({ isOpen, onClose }) => {
         setPhone('');
         setPassword('');
         setIsLogin(true);
-        toast.success("Registered successfully");
+        toastService.success("Registered successfully");
       } else {
         throw new Error(data.message || 'Registration failed');
       }
     } catch (error) {
       console.error('Registration error:', error);
-      toast.error(error.message || 'Failed to register. Please try again.');
+      toastService.error(error.message || 'Failed to register. Please try again.');
     }
   };
 
@@ -113,7 +113,7 @@ const LogRegModal = ({ isOpen, onClose }) => {
       if (response.ok) {
         setLoginId('');
         setPassword('');
-        toast.success("Logged in successfully");
+        toastService.success("Logged in successfully");
         localStorage.setItem("studentToken", data.data.token);
         handleClose(); // Close the modal with animation
       } else {
@@ -122,7 +122,7 @@ const LogRegModal = ({ isOpen, onClose }) => {
     } catch (error) {
       console.error('Login error:', error);
       setInvalidMsg(error.message || 'Failed to login. Please try again.');
-      toast.error("Failed to login");
+      toastService.error("Failed to login");
     }
   };
 

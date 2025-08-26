@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Clock, AlertCircle, CheckCircle, ArrowRight, User, Shield, BookOpen, Calculator, Edit, Menu, Award, XCircle, FileText } from 'lucide-react';
 import { getNextSection, submitSectionAnswers, getExamResults } from './utils/api';
 import { navigateAndScrollToTop } from './utils/navigation';
-import toast from 'react-hot-toast';
+import toastService from './utils/toast.jsx';
 import 'katex/dist/katex.min.css';
 import { InlineMath } from 'react-katex';
 
@@ -125,7 +125,7 @@ const OnlineExam = () => {
   useEffect(() => {
     // Check if we have the required state
     if (!userExamId) {
-      toast.error('Invalid exam session. Redirecting to exam selection.');
+      toastService.error('Invalid exam session. Redirecting to exam selection.');
       navigateAndScrollToTop(navigate, '/exam-selection');
       return;
     }
@@ -133,7 +133,7 @@ const OnlineExam = () => {
     // Check authentication
     const studentToken = localStorage.getItem('studentToken');
     if (!studentToken) {
-      toast.error('Please login to continue.');
+      toastService.error('Please login to continue.');
       navigateAndScrollToTop(navigate, '/');
       return;
     }
@@ -149,17 +149,17 @@ const OnlineExam = () => {
       
       // Show warning when time is running low
       if (timeLeft === 60) {
-        toast.warning('1 minute remaining in this section!');
+        toastService.warning('1 minute remaining in this section!');
       } else if (timeLeft === 30) {
-        toast.warning('30 seconds remaining in this section!');
+        toastService.warning('30 seconds remaining in this section!');
       } else if (timeLeft === 10) {
-        toast.warning('10 seconds remaining! Section will be auto-submitted soon.');
+        toastService.warning('10 seconds remaining! Section will be auto-submitted soon.');
       }
       
       return () => clearTimeout(timer);
     } else if (timeLeft === 0 && !examCompleted && !submitting && currentSection) {
       // Time's up, auto-submit current section
-      toast.error('Time is up! Submitting your answers automatically...', { duration: 3000 });
+      toastService.error('Time is up! Submitting your answers automatically...', { duration: 3000 });
       setTimeout(() => {
         handleSubmitSection(true);
       }, 1000); // Small delay to ensure the toast is shown
@@ -198,24 +198,24 @@ const OnlineExam = () => {
       if (error.message.includes('No more sections')) {
         console.log('No more sections available - exam completed');
         setExamCompleted(true);
-        toast.success('Exam completed successfully!');
+        toastService.success('Exam completed successfully!');
       } else if (error.message.includes('completed')) {
         console.log('Exam already completed');
         setExamCompleted(true);
-        toast.success('Exam completed successfully!');
+        toastService.success('Exam completed successfully!');
       } else if (error.message.includes('access this section yet')) {
         console.log('Cannot access next section - likely exam completed');
         // Wait a bit longer before marking as completed, might be a timing issue
         setTimeout(() => {
           setExamCompleted(true);
-          toast.success('Exam completed successfully!');
+          toastService.success('Exam completed successfully!');
         }, 2000);
       } else if (error.message.includes('Authentication')) {
-        toast.error('Session expired. Please login again.');
+        toastService.error('Session expired. Please login again.');
         localStorage.removeItem('studentToken');
         navigateAndScrollToTop(navigate, '/');
       } else {
-        toast.error('Failed to load section: ' + error.message);
+        toastService.error('Failed to load section: ' + error.message);
         console.error('Unexpected error in loadNextSection:', error);
       }
     } finally {
@@ -234,7 +234,7 @@ const OnlineExam = () => {
     // Add null check for currentSection
     if (!currentSection || !currentSection.id) {
       console.error('No current section available');
-      toast.error('No section available to submit');
+      toastService.error('No section available to submit');
       return;
     }
 
@@ -256,12 +256,12 @@ const OnlineExam = () => {
       await submitSectionAnswers(userExamId, currentSection.id, formattedAnswers);
       
       if (autoSubmit) {
-        toast.warning('Time expired! Section submitted automatically.', { 
+        toastService.warning('Time expired! Section submitted automatically.', { 
           duration: 4000,
           icon: '⏱️'
         });
       } else {
-        toast.success('Section submitted successfully!');
+        toastService.success('Section submitted successfully!');
       }
 
       console.log('Section submitted. Current section:', currentSectionNumber, 'Total sections:', totalSections);
@@ -277,7 +277,7 @@ const OnlineExam = () => {
         console.log('All sections completed');
         // Exam completed
         setExamCompleted(true);
-        toast.success('Exam completed successfully!');
+        toastService.success('Exam completed successfully!');
         
         // Fetch exam results
         try {
@@ -288,16 +288,16 @@ const OnlineExam = () => {
           }
         } catch (error) {
           console.error('Error fetching exam results:', error);
-          toast.error('Failed to fetch exam results: ' + error.message);
+          toastService.error('Failed to fetch exam results: ' + error.message);
         } finally {
           setLoadingResults(false);
         }
         setExamCompleted(true);
-        toast.success('Exam completed successfully!');
+        toastService.success('Exam completed successfully!');
       }
     } catch (error) {
       console.error('Error submitting section:', error);
-      toast.error('Failed to submit section: ' + error.message);
+      toastService.error('Failed to submit section: ' + error.message);
     } finally {
       setSubmitting(false);
     }

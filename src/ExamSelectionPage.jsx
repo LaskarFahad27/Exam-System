@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Clock, Book, Calendar, User, Shield, ChevronRight } from 'lucide-react';
 import { getExamsForUser, startExam } from './utils/api';
 import { navigateAndScrollToTop } from './utils/navigation';
-import toast from 'react-hot-toast';
+import toastService from './utils/toast.jsx';
 
 const ExamSelectionPage = () => {
   const [exams, setExams] = useState([]);
@@ -24,7 +24,7 @@ const ExamSelectionPage = () => {
       }
     } catch (error) {
       console.error('Error fetching exams:', error);
-      toast.error('Failed to load exams');
+      toastService.error('Failed to load exams');
       // If token is invalid, redirect to login
       if (error.message.includes('Authentication')) {
         localStorage.removeItem('studentToken');
@@ -41,7 +41,7 @@ const ExamSelectionPage = () => {
       const response = await startExam(examId);
       
       if (response.success) {
-        toast.success('Exam started successfully!');
+        toastService.success('Exam started successfully!');
         // Navigate to online exam with the user_exam_id
         navigate('/online_exam', { 
           state: { 
@@ -54,7 +54,7 @@ const ExamSelectionPage = () => {
       }
     } catch (error) {
       console.error('Error starting exam:', error);
-      toast.error('Failed to start exam: ' + error.message);
+      toastService.error('Failed to start exam: ' + error.message);
     } finally {
       setStartingExam(null);
     }
@@ -63,7 +63,7 @@ const ExamSelectionPage = () => {
   const handleLogout = () => {
     localStorage.removeItem('studentToken');
     navigateAndScrollToTop(navigate, '/');
-    toast.success('Logged out successfully');
+    toastService.success('Logged out successfully');
   };
 
   if (loading) {

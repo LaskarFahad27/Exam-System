@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from "react-router-dom";
 import { Users, BookOpen, Plus, Edit3, Trash2, Eye, EyeOff, GraduationCap, FileText, Calculator, Book, PenTool, X } from 'lucide-react';
-import toast from 'react-hot-toast';
+import toastService from './utils/toast.jsx';
 import { BACKEND_URL } from './utils/api';
 import { getExams, createExam, createSection, createQuestions, dropExam, forceDropExam, fetchExamsById, deleteQuestion, deleteSection } from './utils/api';
 import MCQMaker from './MCQMaker';
@@ -133,7 +133,7 @@ const AdminPanel = () => {
       }
     } catch (error) {
       console.error("Failed to fetch exam:", error);
-      toast.error('Failed to load exam data');
+      toastService.error('Failed to load exam data');
     }
   };
 
@@ -181,7 +181,7 @@ const AdminPanel = () => {
         try {
           const adminToken = localStorage.getItem("adminToken");
           if (!adminToken) {
-            toast.error("Authentication required");
+            toastService.error("Authentication required");
             setIsLoadingStudents(false);
             return;
           }
@@ -200,11 +200,11 @@ const AdminPanel = () => {
             setStudents(data.data);
             console.log("Students fetched successfully:", data.data);
           } else {
-            toast.error(data.message || "Failed to fetch students");
+            toastService.error(data.message || "Failed to fetch students");
           }
         } catch (error) {
           console.error("Error fetching students:", error);
-          toast.error("Failed to load students");
+          toastService.error("Failed to load students");
         } finally {
           setIsLoadingStudents(false);
         }
@@ -263,16 +263,16 @@ const AdminPanel = () => {
             [activeSection]: true
           }));
           setSectionId(res.data.section.id);
-          toast.success(`${activeSection.charAt(0).toUpperCase() + activeSection.slice(1)} section created successfully!`);
+          toastService.success(`${activeSection.charAt(0).toUpperCase() + activeSection.slice(1)} section created successfully!`);
         }
       } catch (error) {
         console.error("Failed to create section:", error);
-        toast.error("Failed to create section");
+        toastService.error("Failed to create section");
       } finally {
         setLoadingCreateSection(false);
       }
     } else {
-      toast.error("Please provide both duration and sequence order");
+      toastService.error("Please provide both duration and sequence order");
     }
   }
 
@@ -291,7 +291,7 @@ const AdminPanel = () => {
     }
 
     if (!currentSectionId) {
-      toast.error('Section not found. Please create the section first.');
+      toastService.error('Section not found. Please create the section first.');
       return;
     }
 
@@ -319,11 +319,11 @@ const AdminPanel = () => {
           questions: [questionWithId, ...prev[section].questions], 
         },
       }));
-      toast.success('Question added successfully!');
+      toastService.success('Question added successfully!');
     }
   } catch (error) {
     console.error("Failed to create question:", error);
-    toast.error('Failed to add question');
+    toastService.error('Failed to add question');
   } finally {
     setLoadingAddQuestion(false);
   }
@@ -349,7 +349,7 @@ const AdminPanel = () => {
       // Only call API if the question has an ID (meaning it exists in database)
       if (id && typeof id === 'number') {
         await deleteQuestion(id);
-        toast.success('Question deleted successfully!');
+        toastService.success('Question deleted successfully!');
       }
       
       // Update local state
@@ -362,7 +362,7 @@ const AdminPanel = () => {
       }));
     } catch (error) {
       console.error("Failed to delete question:", error);
-      toast.error('Failed to delete question');
+      toastService.error('Failed to delete question');
     } finally {
       setLoadingRemoveQuestion(prev => ({ ...prev, [id]: false }));
     }
@@ -385,7 +385,7 @@ const AdminPanel = () => {
       
       if (sectionData && sectionData.id) {
         await deleteSection(sectionData.id);
-        toast.success('Section deleted successfully!');
+        toastService.success('Section deleted successfully!');
         
         // Update local state
         setSectionCreated(prev => ({
@@ -417,7 +417,7 @@ const AdminPanel = () => {
       }
     } catch (error) {
       console.error("Failed to delete section:", error);
-      toast.error('Failed to delete section');
+      toastService.error('Failed to delete section');
     } finally {
       setLoadingSectionDelete(false);
       setShowDeleteConfirm(false);
@@ -443,7 +443,7 @@ const AdminPanel = () => {
         setLoadingDelete(prev => ({ ...prev, [id]: true }));
         const adminToken = localStorage.getItem("adminToken");
         if (!adminToken) {
-          toast.error("Authentication required");
+          toastService.error("Authentication required");
           setLoadingDelete(prev => ({ ...prev, [id]: false }));
           return;
         }
@@ -460,13 +460,13 @@ const AdminPanel = () => {
         
         if (response.ok && data.success) {
           setStudents(students.filter(student => student.id !== id));
-          toast.success("Student deleted successfully");
+          toastService.success("Student deleted successfully");
         } else {
-          toast.error(data.message || "Failed to delete student");
+          toastService.error(data.message || "Failed to delete student");
         }
       } catch (error) {
         console.error("Error deleting student:", error);
-        toast.error("Failed to delete student");
+        toastService.error("Failed to delete student");
       } finally {
         setLoadingDelete(prev => ({ ...prev, [id]: false }));
       }
@@ -485,7 +485,7 @@ const AdminPanel = () => {
       setLoadingExamDelete(true);
       await dropExam(examToDelete.id);
       setExams(exams.filter(exam => exam.id !== examToDelete.id));
-      toast.success('Exam deleted successfully!');
+      toastService.success('Exam deleted successfully!');
     } catch (error) {
       console.error("Failed to delete exam:", error);
       
@@ -503,14 +503,14 @@ const AdminPanel = () => {
           try {
             await forceDropExam(examToDelete.id);
             setExams(exams.filter(exam => exam.id !== examToDelete.id));
-            toast.success('Exam force deleted successfully!');
+            toastService.success('Exam force deleted successfully!');
           } catch (forceError) {
             console.error("Failed to force delete exam:", forceError);
-            toast.error('Failed to force delete exam: ' + forceError.message);
+            toastService.error('Failed to force delete exam: ' + forceError.message);
           }
         }
       } else {
-        toast.error('Failed to delete exam: ' + error.message);
+        toastService.error('Failed to delete exam: ' + error.message);
       }
     } finally {
       setLoadingExamDelete(false);

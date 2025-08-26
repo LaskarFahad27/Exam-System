@@ -5,6 +5,7 @@ import logo from "../src/assets/logo.png";
 import { Upload } from 'lucide-react';
 import 'katex/dist/katex.min.css';
 import { InlineMath } from 'react-katex';
+import toastService from './utils/toast.jsx';
 
 // Function to convert radical notation to exponential notation
 const convertRadicalToExponential = (text) => {
@@ -201,7 +202,7 @@ const OnlineExam = () => {
         case 'English': setCurrentSection('Math'); setTimeLeft(3600); break;
         case 'Math': setCurrentSection('Reading'); setTimeLeft(1200); break;
         case 'Reading': setCurrentSection('Essay'); setTimeLeft(1200); break;
-        case 'Essay': alert('Exam completed successfully!'); break;
+        case 'Essay': toastService.success('Exam completed successfully!'); break;
       }
       setExamSubmitted(false);
     }, 2000);
@@ -292,7 +293,7 @@ const OnlineExam = () => {
     // Disable right click
     const disableRightClick = (e) => {
       e.preventDefault();
-      alert("You are not able to click 'Right' !");
+      toastService.error("You are not able to click 'Right' !");
     };
 
     // Disable keyboard shortcuts
@@ -303,7 +304,7 @@ const OnlineExam = () => {
         (e.ctrlKey && e.key === "v")    // Ctrl + V
       ) {
         e.preventDefault();
-        alert("You are not able to Copy, Cut, and Paste!");
+        toastService.error("You are not able to Copy, Cut, and Paste!");
       }
     };
 

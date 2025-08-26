@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Clock, AlertCircle, CheckCircle, ArrowRight, User, Shield, BookOpen, Calculator, Edit, Menu, Award, XCircle, FileText } from 'lucide-react';
 import { getNextSection, submitSectionAnswers, getExamResults } from './utils/api';
-import toast from 'react-hot-toast';
+import toastService from './utils/toast.jsx';
 import 'katex/dist/katex.min.css';
 import { InlineMath } from 'react-katex';
 
@@ -121,7 +121,7 @@ const OnlineExam = () => {
   useEffect(() => {
     // Check if we have the required state
     if (!userExamId) {
-      toast.error('Invalid exam session. Redirecting to exam selection.');
+      toastService.error('Invalid exam session. Redirecting to exam selection.');
       navigate('/exam-selection');
       return;
     }
@@ -129,7 +129,7 @@ const OnlineExam = () => {
     // Check authentication
     const studentToken = localStorage.getItem('studentToken');
     if (!studentToken) {
-      toast.error('Please login to continue.');
+      toastService.error('Please login to continue.');
       navigate('/');
       return;
     }
@@ -169,9 +169,9 @@ const OnlineExam = () => {
       console.error('Error loading section:', error);
       if (error.message.includes('No more sections') || error.message.includes('completed')) {
         setExamCompleted(true);
-        toast.success('Exam completed successfully!');
+        toastService.success('Exam completed successfully!');
       } else {
-        toast.error('Failed to load section: ' + error.message);
+        toastService.error('Failed to load section: ' + error.message);
         navigate('/exam-selection');
       }
     } finally {
@@ -192,7 +192,7 @@ const OnlineExam = () => {
       
       // Make sure we have a valid currentSection
       if (!currentSection || !currentSection.id) {
-        toast.error('Failed to submit: Current section is not available');
+        toastService.error('Failed to submit: Current section is not available');
         setSubmitting(false);
         return;
       }
@@ -206,9 +206,9 @@ const OnlineExam = () => {
       await submitSectionAnswers(userExamId, currentSection.id, formattedAnswers);
       
       if (autoSubmit) {
-        toast.warning('Time expired! Section submitted automatically.');
+        toastService.warning('Time expired! Section submitted automatically.');
       } else {
-        toast.success('Section submitted successfully!');
+        toastService.success('Section submitted successfully!');
       }
 
       // Check if there are more sections
@@ -220,7 +220,7 @@ const OnlineExam = () => {
       } else {
         // Exam completed
         setExamCompleted(true);
-        toast.success('Exam completed successfully!');
+        toastService.success('Exam completed successfully!');
         
         // Fetch exam results
         try {
@@ -231,14 +231,14 @@ const OnlineExam = () => {
           }
         } catch (error) {
           console.error('Error fetching exam results:', error);
-          toast.error('Failed to fetch exam results: ' + error.message);
+          toastService.error('Failed to fetch exam results: ' + error.message);
         } finally {
           setLoadingResults(false);
         }
       }
     } catch (error) {
       console.error('Error submitting section:', error);
-      toast.error('Failed to submit section: ' + error.message);
+      toastService.error('Failed to submit section: ' + error.message);
     } finally {
       setSubmitting(false);
     }
