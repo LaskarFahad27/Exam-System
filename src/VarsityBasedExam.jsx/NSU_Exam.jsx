@@ -6,14 +6,8 @@ import {
   Menu,
   X
 } from 'lucide-react';
-<<<<<<< HEAD:src/VarsityBasedExam.jsx/NSU_Exam.jsx
 import logo from "../assets/logo.png"
 import LogRegModal from '../LogRegModal';
-
-=======
-import logo from "../src/assets/logo.png"
-//test comment from fahad
->>>>>>> 75f5f5d74386e4f726ef7d02945e3c960bd65295:src/NSU_Exam.jsx
 const NSU_Exam = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
