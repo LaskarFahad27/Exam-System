@@ -4,6 +4,7 @@ import { Clock, AlertCircle, CheckCircle, ArrowRight, User, Shield, BookOpen, Ca
 import { getNextSection, submitSectionAnswers, getExamResults } from './utils/api';
 import { navigateAndScrollToTop } from './utils/navigation';
 import toastService from './utils/toast.jsx';
+import { isSectionSubmitted, markSectionSubmitted, clearSectionSubmitted, clearExamSubmissionFlags } from './utils/examSubmission';
 import 'katex/dist/katex.min.css';
 import { InlineMath } from 'react-katex';
 
@@ -138,9 +139,81 @@ const OnlineExam = () => {
       return;
     }
 
+    // Clear any existing submission flags for this exam when starting
+    clearExamSubmissionFlags(userExamId);
+
     // Load the first/next section
     loadNextSection();
   }, [userExamId, navigate]);
+
+  const autoSubmitSection = async () => {
+    // Only proceed if we have a valid section and not already submitting
+    if (!currentSection || !currentSection.id) {
+      console.error('No current section available for auto-submission');
+      return;
+    }
+    
+    // Check if this section has already been submitted
+    if (isSectionSubmitted(userExamId, currentSection.id)) {
+      console.log('Section already auto-submitted, waiting for server response');
+      return;
+    }
+    
+    // Start submission process
+    setSubmitting(true);
+    toastService.error('Time is up! Submitting your answers automatically...', { duration: 3000 });
+    
+    // Mark as submitted to prevent duplicate submissions
+    markSectionSubmitted(userExamId, currentSection.id);
+    
+    // Format answers for API - using correct format with answer_text
+    const formattedAnswers = Object.entries(answers).map(([questionId, answer]) => ({
+      question_id: parseInt(questionId),
+      answer_text: answer
+    }));
+
+    console.log('Auto-submitting answers:', {
+      userExamId,
+      sectionId: currentSection.id,
+      answers: formattedAnswers
+    });
+
+    try {
+      // Submit answers
+      await submitSectionAnswers(userExamId, currentSection.id, formattedAnswers);
+      
+      toastService.warning('Time expired! Section submitted automatically.', { 
+        duration: 4000,
+        icon: '⏱️'
+      });
+      
+      // Check if there are more sections
+      if (currentSectionNumber < totalSections) {
+        console.log('Auto-submit successful, loading next section...');
+        // Clear the submission flag for this section
+        clearSectionSubmitted(userExamId, currentSection.id);
+        // Move to next section
+        setTimeout(() => {
+          loadNextSection();
+        }, 1500);
+      } else {
+        console.log('All sections completed');
+        setExamCompleted(true);
+        toastService.success('Exam completed successfully!');
+      }
+    } catch (error) {
+      console.error('Error in auto-submission:', error);
+      toastService.error('Auto-submission failed, but proceeding to next section');
+      
+      // Even if submission fails, proceed to next section after a delay
+      if (currentSectionNumber < totalSections) {
+        setTimeout(() => {
+          clearSectionSubmitted(userExamId, currentSection.id);
+          loadNextSection();
+        }, 3000);
+      }
+    }
+  };
 
   // Timer effect
   useEffect(() => {
@@ -157,20 +230,61 @@ const OnlineExam = () => {
       }
       
       return () => clearTimeout(timer);
-    } else if (timeLeft === 0 && !examCompleted && !submitting && currentSection) {
-      // Time's up, auto-submit current section
-      toastService.error('Time is up! Submitting your answers automatically...', { duration: 3000 });
-      setTimeout(() => {
-        handleSubmitSection(true);
-      }, 1000); // Small delay to ensure the toast is shown
+    } else if (timeLeft === 0 && !examCompleted && currentSection) {
+      // Time is up - simplified approach to avoid stuck state
+      
+      // Only proceed if we're not already in the process of submitting
+      if (submitting) {
+        // If we're already submitting, add a safety timeout to ensure we don't get stuck
+        const stuckTimer = setTimeout(() => {
+          console.log('Submission taking too long, forcing progress to next section');
+          clearSectionSubmitted(userExamId, currentSection.id);
+          setSubmitting(false);
+          if (currentSectionNumber < totalSections) {
+            loadNextSection();
+          }
+        }, 8000); // Give it 8 seconds to complete before forcing
+        
+        return () => clearTimeout(stuckTimer);
+      }
+      
+      // Call the auto-submission function
+      autoSubmitSection();
     }
-  }, [timeLeft, examCompleted, submitting, currentSection]);
+  }, [timeLeft, examCompleted, submitting, currentSection, userExamId, currentSectionNumber, totalSections, answers]);
+
+  useEffect(() => {
+    // When the exam is completed, clear all localStorage flags for this exam
+    if (examCompleted && userExamId) {
+      // Clear all localStorage items related to this exam
+      clearExamSubmissionFlags(userExamId);
+    }
+  }, [examCompleted, userExamId]);
+
+  // This function is now provided by the examSubmission.js utility module
+  // and can be safely removed here
+  /*
+  const clearExamLocalStorage = (examId) => {
+    // Get all localStorage keys
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      // Check if the key is related to this exam
+      if (key && key.startsWith(`exam_${examId}`)) {
+        localStorage.removeItem(key);
+      }
+    }
+  };
+  */
 
   const loadNextSection = async () => {
     try {
       setLoading(true);
       console.log('Loading next section for userExamId:', userExamId);
       
+      // Reset submission state
+      setSubmitting(false);
+      
+      // Attempt to get the next section
       const response = await getNextSection(userExamId);
       
       if (response.success) {
@@ -182,6 +296,12 @@ const OnlineExam = () => {
           totalSections: total_sections,
           sectionsCompleted: sections_completed
         });
+        
+        // If the previous section for this exam was marked as submitted but we're still getting a new section,
+        // make sure to clear any existing submission flags
+        if (currentSection && currentSection.id) {
+          clearSectionSubmitted(userExamId, currentSection.id);
+        }
         
         setCurrentSection(section);
         setQuestions(questions);
@@ -238,8 +358,21 @@ const OnlineExam = () => {
       return;
     }
 
+    // Check if this section has already been submitted using the utility function
+    if (isSectionSubmitted(userExamId, currentSection.id)) {
+      console.log('Section already submitted, waiting for server response or moving to next section');
+      return;
+    }
+
+    // If this is an auto-submit triggered by timer expiration, use the dedicated function
+    if (autoSubmit) {
+      return autoSubmitSection();
+    }
+
     try {
       setSubmitting(true);
+      // Mark this section as being submitted to prevent duplicate submissions
+      markSectionSubmitted(userExamId, currentSection.id);
       
       // Format answers for API - using correct format with answer_text
       const formattedAnswers = Object.entries(answers).map(([questionId, answer]) => ({
@@ -269,6 +402,9 @@ const OnlineExam = () => {
       // Check if there are more sections
       if (currentSectionNumber < totalSections) {
         console.log('Loading next section...');
+        // Clear the current section's submission flag before loading the next
+        clearSectionSubmitted(userExamId, currentSection.id);
+        
         // Load next section after a brief delay
         setTimeout(() => {
           loadNextSection();
@@ -292,14 +428,27 @@ const OnlineExam = () => {
         } finally {
           setLoadingResults(false);
         }
-        setExamCompleted(true);
-        toastService.success('Exam completed successfully!');
+        // Remove the duplicate toast message here
       }
     } catch (error) {
       console.error('Error submitting section:', error);
       toastService.error('Failed to submit section: ' + error.message);
+      
+      // If submission fails, we should still allow moving to the next section after a timeout
+      if (currentSectionNumber < totalSections) {
+        console.log('Submission failed but proceeding to next section...');
+        setTimeout(() => {
+          // Clear the submission flag so we can proceed
+          clearSectionSubmitted(userExamId, currentSection.id);
+          loadNextSection();
+        }, 3000);
+      }
     } finally {
-      setSubmitting(false);
+      // Keep submitting state true if it failed due to network issues
+      // so that we don't trigger multiple submissions
+      if (!isSectionSubmitted(userExamId, currentSection.id)) {
+        setSubmitting(false);
+      }
     }
   };
 

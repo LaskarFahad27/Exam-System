@@ -330,7 +330,7 @@ const LogRegModal = ({ isOpen, onClose }) => {
                 </div>
                 <input
                   type="text"
-                  placeholder="Phone Number"
+                  placeholder="WhatsApp Number"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-all ${
