@@ -12,11 +12,13 @@ import AdminPanel from "./Admin";
 import LandingPage from "./LandingPage";
 import ExamSelectionPage from "./ExamSelectionPage";
 import Footer from "./components/Footer";
+import ScrollToTop from "./components/ScrollToTop";
 
 function App() {
   return (
     <div className="flex flex-col min-h-screen">
       <Toaster/>
+      <ScrollToTop />
       <main className="flex-grow">
         <Routes>
           <Route path="/" element={<LandingPage />} />

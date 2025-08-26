@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Clock, AlertCircle, CheckCircle, ArrowRight, User, Shield, BookOpen, Calculator, Edit, Menu, Award, XCircle, FileText } from 'lucide-react';
 import { getNextSection, submitSectionAnswers, getExamResults } from './utils/api';
+import { navigateAndScrollToTop } from './utils/navigation';
 import toast from 'react-hot-toast';
 import 'katex/dist/katex.min.css';
 import { InlineMath } from 'react-katex';
@@ -125,7 +126,7 @@ const OnlineExam = () => {
     // Check if we have the required state
     if (!userExamId) {
       toast.error('Invalid exam session. Redirecting to exam selection.');
-      navigate('/exam-selection');
+      navigateAndScrollToTop(navigate, '/exam-selection');
       return;
     }
     
@@ -133,7 +134,7 @@ const OnlineExam = () => {
     const studentToken = localStorage.getItem('studentToken');
     if (!studentToken) {
       toast.error('Please login to continue.');
-      navigate('/');
+      navigateAndScrollToTop(navigate, '/');
       return;
     }
 
@@ -212,7 +213,7 @@ const OnlineExam = () => {
       } else if (error.message.includes('Authentication')) {
         toast.error('Session expired. Please login again.');
         localStorage.removeItem('studentToken');
-        navigate('/');
+        navigateAndScrollToTop(navigate, '/');
       } else {
         toast.error('Failed to load section: ' + error.message);
         console.error('Unexpected error in loadNextSection:', error);
@@ -486,7 +487,7 @@ const OnlineExam = () => {
           
           <div className="mt-6 text-center">
             <button
-              onClick={() => navigate('/exam-selection')}
+              onClick={() => navigateAndScrollToTop(navigate, '/exam-selection')}
               className="bg-blue-600 text-white py-2 px-6 rounded-lg hover:bg-blue-700 transition-colors"
             >
               Back to Exams
@@ -524,18 +525,22 @@ const OnlineExam = () => {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white shadow-sm border-b sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center space-x-4">
-            <Shield className="w-6 h-6 text-blue-600" />
-            <span className="text-lg font-semibold text-gray-900">{examTitle}</span>
-            <div className="flex items-center space-x-2 text-sm text-gray-600">
+        <div className="max-w-6xl mx-auto px-4 py-3 sm:py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center">
+          <div className="flex items-center space-x-4 mb-2 sm:mb-0">
+            <Shield className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
+            <span className="text-base sm:text-lg font-semibold text-gray-900 truncate max-w-[200px] sm:max-w-none">{examTitle}</span>
+            <div className="hidden sm:flex items-center space-x-2 text-sm text-gray-600">
               <User className="w-4 h-4" />
               <span>Section {currentSectionNumber}/{totalSections}</span>
             </div>
           </div>
           <div className="flex items-center space-x-2">
-            <Clock className={`w-5 h-5 ${timeLeft < 300 ? 'text-red-500' : 'text-blue-600'}`} />
-            <span className={`text-xl font-mono font-bold ${
+            <div className="flex sm:hidden items-center mr-3 text-xs text-gray-600">
+              <User className="w-3 h-3 mr-1" />
+              <span>Section {currentSectionNumber}/{totalSections}</span>
+            </div>
+            <Clock className={`w-4 h-4 sm:w-5 sm:h-5 ${timeLeft < 300 ? 'text-red-500' : 'text-blue-600'}`} />
+            <span className={`text-base sm:text-xl font-mono font-bold ${
               timeLeft < 60 ? 'text-red-500 animate-pulse' : 
               timeLeft < 300 ? 'text-red-500' : 
               'text-gray-900'
@@ -544,8 +549,8 @@ const OnlineExam = () => {
             </span>
             {timeLeft < 300 && (
               <div className="flex items-center">
-                <AlertCircle className="w-5 h-5 text-red-500" />
-                {timeLeft < 60 && <span className="text-xs text-red-500 ml-1">Auto-submit soon!</span>}
+                <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-red-500" />
+                {timeLeft < 60 && <span className="text-xs text-red-500 ml-1 hidden sm:inline">Auto-submit soon!</span>}
               </div>
             )}
           </div>
@@ -555,15 +560,15 @@ const OnlineExam = () => {
       {/* Section Header */}
       {currentSection && (
         <div className={`${getSectionColor(currentSection.name)} text-white`}>
-          <div className="max-w-6xl mx-auto px-4 py-6">
+          <div className="max-w-6xl mx-auto px-4 py-4 sm:py-6">
             <div className="flex items-center space-x-3 mb-2">
               {getSectionIcon(currentSection.name)}
-              <h1 className="text-2xl font-bold">
+              <h1 className="text-xl sm:text-2xl font-bold">
                 {currentSection.name.charAt(0).toUpperCase() + currentSection.name.slice(1)} Section
               </h1>
             </div>
-            <div className="flex items-center justify-between text-sm opacity-90">
-              <span>Answer all questions to the best of your ability</span>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between text-sm opacity-90">
+              <span className="mb-1 sm:mb-0">Answer all questions to the best of your ability</span>
               <span>Duration: {currentSection.duration_minutes} minutes</span>
             </div>
             

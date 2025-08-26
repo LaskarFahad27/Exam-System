@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from "react-router-dom";
 import Header from '../components/Header';
+import { navigateAndScrollToTop } from '../utils/navigation';
 import { 
   Menu,
   X
@@ -12,11 +13,11 @@ const EWU_Exam = () => {
   const navigate = useNavigate();
 
   const startExam = () => {
-    navigate("/online_exam"); 
+    navigateAndScrollToTop(navigate, "/online_exam");
   };
 
   const adminLogin = () => {
-    navigate("/adminlogin"); 
+    navigateAndScrollToTop(navigate, "/adminlogin");
   };
 
   return (

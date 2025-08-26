@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from "react-router-dom";
+import { navigateAndScrollToTop } from '../utils/navigation';
 import Header from '../components/Header';
 import { 
   CheckCircle, 
@@ -38,7 +39,7 @@ const NSU_Exam = () => {
 
   const handleStartExam = () => {
     if (isLoggedIn) {
-      navigate("/exam-selection");
+      navigateAndScrollToTop(navigate, "/exam-selection");
     } else {
       setErrorMessage('Please login to access the examinations');
       openModal();
@@ -55,7 +56,7 @@ const NSU_Exam = () => {
   };
 
   const adminLogin = () => {
-    navigate("/adminlogin"); 
+    navigateAndScrollToTop(navigate, "/adminlogin");
   };
 
   return (
