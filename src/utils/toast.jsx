@@ -74,9 +74,23 @@ const showToast = (message, type = 'default') => {
   return currentToastId;
 };
 
+// Helper function to format error messages
+const formatErrorMessage = (message) => {
+  if (!message) return message;
+  
+  // Check if the message contains a colon
+  if (message.includes(':')) {
+    // Extract the part after the colon and trim whitespace
+    const formattedMessage = message.split(':')[1].trim();
+    return formattedMessage;
+  }
+  
+  return message;
+};
+
 // Expose specific toast types
 export const successToast = (message) => showToast(message, 'success');
-export const errorToast = (message) => showToast(message, 'error');
+export const errorToast = (message) => showToast(formatErrorMessage(message), 'error');
 export const warningToast = (message) => showToast(message, 'warning');
 export const defaultToast = (message) => showToast(message, 'default');
 
