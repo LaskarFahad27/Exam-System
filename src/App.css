@@ -1,3 +1,16 @@
+/* App structure for footer positioning */
+#root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+}
+
 /* Enhanced styles for Math MCQ Maker */
 .math-symbol-button {
   transition: all 0.2s ease;

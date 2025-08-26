@@ -101,7 +101,6 @@ const LogRegModal = ({ isOpen, onClose }) => {
         toast.success("Logged in successfully");
         localStorage.setItem("studentToken", data.data.token);
         onClose(); // Close the modal
-        navigate("/exam-selection");
       } else {
         throw new Error(data.message || 'Login failed');
         toast.error("Failed to login");

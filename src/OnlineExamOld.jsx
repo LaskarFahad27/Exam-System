@@ -82,40 +82,16 @@ const renderMathContent = (text) => {
   if (!text || typeof text !== 'string') return text;
   
   // Check for math symbols that need rendering
-  const mathSymbols = /[√∛∜⁵²³⁴⁵₂₃π]|x²|x³|\^|\\_|log₂/;
+  const mathSymbols = /[√∛∜⁵²³⁴⁵₂₃π]|x²|x³|\^|\\_|log₂|\[math\]|\[\/math\]/;
   
   if (!mathSymbols.test(text)) return text;
   
   try {
-    // Convert to exponential notation
-    let latex = convertRadicalToExponential(text);
+    // Remove any [math] and [/math] tags
+    let cleanText = text.replace(/\[math\]/g, '').replace(/\[\/math\]/g, '');
     
-    // Wrap in math delimiters if not already wrapped
-    if (!latex.includes('[math]')) {
-      latex = `[math]${latex}[/math]`;
-    }
-    
-    // Split the text by [math] and [/math] tags
-    const parts = latex.split(/(\[math\].*?\[\/math\])/g);
-    
-    return parts.map((part, index) => {
-      if (part.startsWith('[math]') && part.endsWith('[/math]')) {
-        // Extract the LaTeX content
-        let mathContent = part.replace('[math]', '').replace('[/math]', '');
-        
-        try {
-          return (
-            <InlineMath key={index} math={mathContent} />
-          );
-        } catch (error) {
-          console.error('KaTeX rendering error:', error);
-          // Fallback to plain text if KaTeX fails
-          return <span key={index} className="text-red-500 text-sm">Math: {mathContent}</span>;
-        }
-      }
-      return part;
-    });
-    
+    // For math content, render it with KaTeX
+    return <InlineMath math={cleanText} />;
   } catch (error) {
     console.error('Math content processing error:', error);
     return text; // Return original text if processing fails
@@ -210,6 +186,8 @@ const OnlineExam = () => {
   };
 
   const getAnsweredCount = () => {
+    if (!Array.isArray(currentQuestions)) return 0;
+    
     if (currentSection === 'Essay') {
       return currentQuestions.filter(q => answers[q.id] && answers[q.id].trim() !== '').length;
     }
@@ -370,7 +348,7 @@ const OnlineExam = () => {
               <h2 className="text-2xl font-bold text-gray-900 mb-2">{currentSection} Section Completed!</h2>
               <p className="text-gray-600 mb-4">Redirecting to next section...</p>
               <div className="text-sm text-gray-500">
-                Questions Answered: {getAnsweredCount()}/{currentQuestions.length}
+                Questions Answered: {getAnsweredCount()}/{Array.isArray(currentQuestions) ? currentQuestions.length : 0}
               </div>
             </>
           ) : (
@@ -471,14 +449,14 @@ const OnlineExam = () => {
             </h1>
           </div>
           <div className="flex items-center justify-between">
-            <span>Total Questions: {currentQuestions.length}</span>
-            <div>Answered: {getAnsweredCount()}/{currentQuestions.length}</div>
+            <span>Total Questions: {Array.isArray(currentQuestions) ? currentQuestions.length : 0}</span>
+            <div>Answered: {getAnsweredCount()}/{Array.isArray(currentQuestions) ? currentQuestions.length : 0}</div>
           </div>
           <div className="mt-4">
             <div className="rounded-full h-2 bg-white">
               <div
                 className="rounded-full h-2 bg-gray-800 transition-all duration-300"
-                style={{ width: `${(getAnsweredCount()/currentQuestions.length)*100}%` }}
+                style={{ width: `${Array.isArray(currentQuestions) && currentQuestions.length > 0 ? (getAnsweredCount()/currentQuestions.length)*100 : 0}%` }}
               ></div>
             </div>
           </div>
@@ -503,7 +481,7 @@ const OnlineExam = () => {
     </div>
   )}
 
-        {currentQuestions.map((question, index) => {
+        {Array.isArray(currentQuestions) && currentQuestions.map((question, index) => {
           const isAnswered = answers[question.id] !== undefined && (currentSection !== 'Essay' ? true : answers[question.id]?.trim() !== '');
           return (
             <div key={question.id} className="bg-white rounded-lg shadow-lg p-6">
@@ -511,7 +489,9 @@ const OnlineExam = () => {
                 <div className={`text-white rounded-full w-10 h-10 flex items-center justify-center font-bold text-sm flex-shrink-0 ${currentSection === 'English' ? 'bg-blue-600' : currentSection === 'Math' ? 'bg-green-600' : currentSection === 'Reading' ? 'bg-purple-600' : 'bg-orange-600'}`}>
                   {index+1}
                 </div>
-                <h2 className="text-xl font-medium text-gray-900">{renderMathContent(question.question)}</h2>
+                <div className="flex-1">
+                  <h2 className="text-xl font-medium text-gray-900">{renderMathContent(question.question)}</h2>
+                </div>
               </div>
 
               {/* Options or Essay */}
@@ -523,7 +503,9 @@ const OnlineExam = () => {
                     return (
                       <label key={optionIndex} className={`flex items-start space-x-3 p-4 rounded-lg border-2 cursor-pointer ${isSelected ? 'border-blue-500 bg-blue-50' : isDisabled ? 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-60' : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50'}`}>
                         <input type="radio" checked={isSelected} onChange={() => handleAnswerSelect(question.id, optionIndex)} disabled={isDisabled} className="mt-1 w-4 h-4 text-blue-600 focus:ring-blue-500"/>
-                        <span className={`ml-2 ${isSelected ? 'text-blue-900 font-medium' : 'text-gray-900'}`}>{String.fromCharCode(65+optionIndex)}. {renderMathContent(option)}</span>
+                        <div className="ml-2">
+                          <span className={`${isSelected ? 'text-blue-900 font-medium' : 'text-gray-900'}`}>{String.fromCharCode(65+optionIndex)}. {renderMathContent(option)}</span>
+                        </div>
                       </label>
                     );
                   })}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Clock, AlertCircle, CheckCircle, ArrowRight, User, Shield, BookOpen, Calculator, Edit, Menu } from 'lucide-react';
-import { getNextSection, submitSectionAnswers } from './utils/api';
+import { Clock, AlertCircle, CheckCircle, ArrowRight, User, Shield, BookOpen, Calculator, Edit, Menu, Award, XCircle, FileText } from 'lucide-react';
+import { getNextSection, submitSectionAnswers, getExamResults } from './utils/api';
 import toast from 'react-hot-toast';
 import 'katex/dist/katex.min.css';
 import { InlineMath } from 'react-katex';
@@ -87,35 +87,8 @@ const renderMathContent = (text) => {
   if (!mathSymbols.test(text)) return text;
   
   try {
-    // Convert to exponential notation
-    let latex = convertRadicalToExponential(text);
-    
-    // Wrap in math delimiters if not already wrapped
-    if (!latex.includes('[math]')) {
-      latex = `[math]${latex}[/math]`;
-    }
-    
-    // Split the text by [math] and [/math] tags
-    const parts = latex.split(/(\[math\].*?\[\/math\])/g);
-    
-    return parts.map((part, index) => {
-      if (part.startsWith('[math]') && part.endsWith('[/math]')) {
-        // Extract the LaTeX content
-        let mathContent = part.replace('[math]', '').replace('[/math]', '');
-        
-        try {
-          return (
-            <InlineMath key={index} math={mathContent} />
-          );
-        } catch (error) {
-          console.error('KaTeX rendering error:', error);
-          // Fallback to plain text if KaTeX fails
-          return <span key={index} className="text-red-500 text-sm">Math: {mathContent}</span>;
-        }
-      }
-      return part;
-    });
-    
+    // For math content, just render it directly with KaTeX
+    return <InlineMath math={text} />;
   } catch (error) {
     console.error('Math content processing error:', error);
     return text; // Return original text if processing fails
@@ -142,6 +115,8 @@ const OnlineExam = () => {
   const [totalSections, setTotalSections] = useState(0);
   const [sectionsCompleted, setSectionsCompleted] = useState(0);
   const [examCompleted, setExamCompleted] = useState(false);
+  const [examResults, setExamResults] = useState(null);
+  const [loadingResults, setLoadingResults] = useState(false);
 
   useEffect(() => {
     // Check if we have the required state
@@ -215,6 +190,13 @@ const OnlineExam = () => {
     try {
       setSubmitting(true);
       
+      // Make sure we have a valid currentSection
+      if (!currentSection || !currentSection.id) {
+        toast.error('Failed to submit: Current section is not available');
+        setSubmitting(false);
+        return;
+      }
+      
       // Format answers for API
       const formattedAnswers = Object.entries(answers).map(([questionId, answer]) => ({
         question_id: parseInt(questionId),
@@ -239,6 +221,20 @@ const OnlineExam = () => {
         // Exam completed
         setExamCompleted(true);
         toast.success('Exam completed successfully!');
+        
+        // Fetch exam results
+        try {
+          setLoadingResults(true);
+          const results = await getExamResults(userExamId);
+          if (results.success) {
+            setExamResults(results.data);
+          }
+        } catch (error) {
+          console.error('Error fetching exam results:', error);
+          toast.error('Failed to fetch exam results: ' + error.message);
+        } finally {
+          setLoadingResults(false);
+        }
       }
     } catch (error) {
       console.error('Error submitting section:', error);
@@ -300,21 +296,144 @@ const OnlineExam = () => {
 
   if (examCompleted) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
-          <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Exam Completed!</h2>
-          <p className="text-gray-600 mb-4">Thank you for taking the examination.</p>
-          <p className="text-sm text-gray-500 mb-6">
-            Exam: {examTitle}<br/>
-            Sections Completed: {totalSections}/{totalSections}
-          </p>
-          <button
-            onClick={() => navigate('/exam-selection')}
-            className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Back to Exams
-          </button>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center py-8">
+        <div className="bg-white rounded-lg shadow-lg p-8 max-w-3xl w-full">
+          <div className="text-center mb-6">
+            <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Exam Completed!</h2>
+            <p className="text-gray-600 mb-2">Thank you for taking the examination.</p>
+            <p className="text-sm text-gray-500">
+              Exam: {examTitle}<br/>
+              Sections Completed: {totalSections}/{totalSections}
+            </p>
+          </div>
+          
+          {loadingResults ? (
+            <div className="text-center py-6">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="mt-4 text-gray-600">Loading exam results...</p>
+            </div>
+          ) : examResults ? (
+            <div className="space-y-6">
+              <div className="text-center bg-blue-50 rounded-lg p-4 border border-blue-100">
+                <div className="flex items-center justify-center space-x-2 mb-2">
+                  <Award className="w-6 h-6 text-blue-600" />
+                  <h3 className="text-xl font-bold text-blue-900">Overall Score</h3>
+                </div>
+                <div className="text-3xl font-bold text-blue-700">{examResults.total_score}%</div>
+              </div>
+              
+              <div className="divide-y divide-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Section Breakdown</h3>
+                
+                {examResults.sections.map((section) => (
+                  <div key={section.section_id} className="py-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center space-x-2">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                          section.score_percentage >= 70 
+                            ? 'bg-green-100 text-green-700' 
+                            : section.score_percentage >= 40 
+                              ? 'bg-yellow-100 text-yellow-700' 
+                              : 'bg-red-100 text-red-700'
+                        }`}>
+                          {section.score_percentage >= 70 
+                            ? <CheckCircle className="w-4 h-4" /> 
+                            : section.score_percentage >= 40 
+                              ? <AlertCircle className="w-4 h-4" /> 
+                              : <XCircle className="w-4 h-4" />}
+                        </div>
+                        <h4 className="font-medium text-gray-900">{section.section_name}</h4>
+                      </div>
+                      <div className="text-lg font-semibold text-gray-900">{section.score_percentage}%</div>
+                    </div>
+                    
+                    <div className="bg-gray-100 rounded-full h-2.5 mb-2">
+                      <div 
+                        className={`h-2.5 rounded-full ${
+                          section.score_percentage >= 70 
+                            ? 'bg-green-600' 
+                            : section.score_percentage >= 40 
+                              ? 'bg-yellow-500' 
+                              : 'bg-red-500'
+                        }`} 
+                        style={{ width: `${section.score_percentage}%` }}
+                      ></div>
+                    </div>
+                    
+                    <div className="flex justify-between text-sm text-gray-600">
+                      <span>Correct Answers: {section.correct_answers}/{section.total_questions}</span>
+                      <span>Questions: {section.total_questions}</span>
+                    </div>
+                    
+                    {section.questions && section.questions.length > 0 && (
+                      <div className="mt-3">
+                        <button 
+                          onClick={() => document.getElementById(`section-${section.section_id}`).classList.toggle('hidden')}
+                          className="text-sm flex items-center space-x-1 text-blue-600 hover:text-blue-800"
+                        >
+                          <FileText className="w-4 h-4" />
+                          <span>View Question Details</span>
+                        </button>
+                        
+                        <div id={`section-${section.section_id}`} className="hidden mt-3 pl-4 border-l-2 border-gray-200 space-y-3">
+                          {section.questions.map((question) => (
+                            <div key={question.question_id} className={`p-3 rounded-md ${
+                              question.is_correct ? 'bg-green-50 border border-green-100' : 'bg-red-50 border border-red-100'
+                            }`}>
+                              <p className="text-sm font-medium text-gray-800 mb-2">{question.question_text}</p>
+                              
+                              {question.question_type === 'mcq' && (
+                                <div className="space-y-1 text-sm">
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                      <span className="text-gray-600">Your answer:</span>
+                                      <span className={`ml-1 font-medium ${question.is_correct ? 'text-green-700' : 'text-red-700'}`}>
+                                        {question.user_answer}
+                                      </span>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-600">Correct answer:</span>
+                                      <span className="ml-1 font-medium text-green-700">{question.correct_answer}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                              
+                              <div className="mt-2 flex items-center">
+                                {question.is_correct ? (
+                                  <span className="text-xs flex items-center text-green-700">
+                                    <CheckCircle className="w-3 h-3 mr-1" /> Correct
+                                  </span>
+                                ) : (
+                                  <span className="text-xs flex items-center text-red-700">
+                                    <XCircle className="w-3 h-3 mr-1" /> Incorrect
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-6 text-gray-500">
+              <p>Results not available at this time.</p>
+            </div>
+          )}
+          
+          <div className="mt-6 text-center">
+            <button
+              onClick={() => navigate('/exam-selection')}
+              className="bg-blue-600 text-white py-2 px-6 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Back to Exams
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -326,7 +445,7 @@ const OnlineExam = () => {
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Submitting section...</p>
-          <p className="text-sm text-gray-500">Questions Answered: {getAnsweredCount()}/{questions.length}</p>
+          <p className="text-sm text-gray-500">Questions Answered: {getAnsweredCount()}/{Array.isArray(questions) ? questions.length : 0}</p>
         </div>
       </div>
     );
@@ -377,14 +496,14 @@ const OnlineExam = () => {
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="mb-6 flex justify-between items-center">
           <h2 className="text-xl font-semibold text-gray-900">
-            Questions ({getAnsweredCount()}/{questions.length} answered)
+            Questions ({getAnsweredCount()}/{Array.isArray(questions) ? questions.length : 0} answered)
           </h2>
           <div className="text-sm text-gray-500">
             Section {currentSectionNumber} of {totalSections}
           </div>
         </div>
 
-        {questions.map((q, index) => {
+        {Array.isArray(questions) && questions.map((q, index) => {
           const questionNumber = index + 1;
           const isAnswered = answers[q.id] !== undefined;
           
@@ -399,6 +518,13 @@ const OnlineExam = () => {
                 <div className="flex-1">
                   <h3 className="text-lg font-medium text-gray-900 mb-4">
                     {renderMathContent(q.question_text)}
+                    {/* Show exponential notation also for questions */}
+                    {typeof q.question_text === 'string' && q.question_text.match(/[√∛∜⁵²³⁴⁵₂₃π]|x²|x³|\^|\\_|log₂/) && (
+                      <div className="mt-2 text-sm text-gray-600">
+                        <span>Exponential form: </span>
+                        <InlineMath math={convertRadicalToExponential(q.question_text)} />
+                      </div>
+                    )}
                   </h3>
                   
                   {q.question_type === 'mcq' && q.options && (
@@ -420,7 +546,9 @@ const OnlineExam = () => {
                             onChange={(e) => handleAnswerChange(q.id, e.target.value)}
                             className="text-blue-600"
                           />
-                          <span className="flex-1">{renderMathContent(option.text)}</span>
+                          <span className="flex-1">
+                            {renderMathContent(option.text)}
+                          </span>
                         </label>
                       ))}
                     </div>

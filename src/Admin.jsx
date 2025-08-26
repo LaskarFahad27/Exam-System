@@ -670,7 +670,7 @@ const AdminPanel = () => {
                     { key: 'english', label: 'English', icon: Book, color: 'blue' },
                     { key: 'math', label: 'Mathematics', icon: Calculator, color: 'green' },
                     { key: 'reading', label: 'Reading Comprehension', icon: FileText, color: 'purple' },
-                    { key: 'essay', label: 'Essay Writing', icon: PenTool, color: 'orange' }
+                    // { key: 'essay', label: 'Essay Writing', icon: PenTool, color: 'orange' }
                   ].map((section) => (
                     <button
                       key={section.key}
@@ -783,7 +783,8 @@ const AdminPanel = () => {
     {activeSection === 'math' && !sectionCreated.math && (
       <div className="p-6 bg-gray-50 rounded-lg text-center">
         <p className="text-gray-700 font-medium mb-4">
-          This section is not created yet. Enter allotted time & sequence order.
+          This section is not created yet. <br />
+          Enter allotted time & sequence order for this section to create it.
         </p>
         <input
           type="number"
@@ -847,7 +848,8 @@ const AdminPanel = () => {
     {activeSection === 'reading' && !sectionCreated.reading && (
       <div className="p-6 bg-gray-50 rounded-lg text-center">
         <p className="text-gray-700 font-medium mb-4">
-          This section is not created yet. Enter allotted time & sequence order.
+          This section is not created yet. <br />
+          Enter allotted time & sequence order for this section to create it.
         </p>
         <input
           type="number"
@@ -908,7 +910,7 @@ const AdminPanel = () => {
     )}
 
     {/* ========== ESSAY SECTION ========== */}
-    {activeSection === 'essay' && !sectionCreated.essay && (
+    {/* {activeSection === 'essay' && !sectionCreated.essay && (
       <div className="p-6 bg-gray-50 rounded-lg text-center">
         <p className="text-gray-700 font-medium mb-4">
           This section is not created yet. Enter allotted time & sequence order.
@@ -957,7 +959,7 @@ const AdminPanel = () => {
           Create Section
         </button>
       </div>
-    )}
+    )} */}
 
     {activeSection === 'essay' && sectionCreated.essay && (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

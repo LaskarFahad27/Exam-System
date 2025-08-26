@@ -432,3 +432,34 @@ export async function submitSectionAnswers(userExamId, sectionId, answers) {
     throw error;
   }
 }
+
+export async function getExamResults(examId) {
+  const studentToken = localStorage.getItem("studentToken");
+
+  if (!studentToken) {
+    throw new Error("Authentication required");
+  }
+
+  try {
+    const response = await fetch(`${BACKEND_URL}/scores/user-exams/${examId}/details`, {
+      method: "GET",
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${studentToken}`
+      },
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      console.log("Exam results fetched successfully:", data);
+      return data;
+    }
+    else {
+      throw new Error(data.message || "Failed to fetch exam results");
+    }
+  } catch (error) {
+    console.error("Error fetching exam results:", error);
+    throw error;
+  }
+}

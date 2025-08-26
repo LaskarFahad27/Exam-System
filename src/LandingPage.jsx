@@ -7,13 +7,28 @@ import {
   X
 } from 'lucide-react';
 import logo from "../src/assets/logo.png"
+import LogRegModal from './LogRegModal';
 
 const LandingPage = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isLogRegModalOpen, setIsLogRegModalOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const navigate = useNavigate();
 
-  const startExam = () => {
-    navigate("/online_exam"); 
+  useEffect(() => {
+    // Check if user is logged in
+    const studentToken = localStorage.getItem('studentToken');
+    setIsLoggedIn(!!studentToken);
+  }, []);
+
+  const handleLogin = () => {
+    setIsLogRegModalOpen(true);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('studentToken');
+    setIsLoggedIn(false);
   };
 
   const adminLogin = () => {
@@ -21,7 +36,7 @@ const LandingPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 pb-24">
       {/* Navigation */}
       <nav className="bg-white shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -43,7 +58,18 @@ const LandingPage = () => {
                 <button className="bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transform hover:scale-105 transition-all duration-200 shadow-lg"
                       onClick={adminLogin}>
                    Admin Login
-              </button>
+                </button>
+                {isLoggedIn ? (
+                  <button className="bg-red-600 text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-red-700 transform hover:scale-105 transition-all duration-200 shadow-lg"
+                        onClick={handleLogout}>
+                    Logout
+                  </button>
+                ) : (
+                  <button className="bg-green-600 text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-green-700 transform hover:scale-105 transition-all duration-200 shadow-lg"
+                        onClick={handleLogin}>
+                    Login
+                  </button>
+                )}
               </div>
             </div>
 
@@ -67,6 +93,11 @@ const LandingPage = () => {
               <a href="#testimonials" className="text-gray-700 hover:text-blue-600 block px-3 py-2 text-base font-medium">Testimonials</a>
               <a href="#contact" className="text-gray-700 hover:text-blue-600 block px-3 py-2 text-base font-medium">Contact</a>
               <div onClick={adminLogin} className="text-gray-700 hover:text-blue-600 block px-3 py-2 text-base font-medium">Admin Login</div>
+              {isLoggedIn ? (
+                <div onClick={handleLogout} className="text-red-600 hover:text-red-700 block px-3 py-2 text-base font-medium">Logout</div>
+              ) : (
+                <div onClick={handleLogin} className="text-green-600 hover:text-green-700 block px-3 py-2 text-base font-medium">Login</div>
+              )}
             </div>
           </div>
         )}
@@ -133,13 +164,20 @@ const LandingPage = () => {
           </div>
         </div>
       </section>
-      {/* Footer */}
-<footer className="bg-gray-800 text-white py-6 mt-12">
-  <div className="max-w-7xl mx-auto px-4 text-center">
-    <p className="text-sm">&copy; {new Date().getFullYear()} Developed by <span className="font-semibold">CoreCraft</span></p>
-  </div>
-</footer>
-
+      
+      {/* Login/Register Modal */}
+      <LogRegModal 
+        isOpen={isLogRegModalOpen} 
+        onClose={() => {
+          setIsLogRegModalOpen(false);
+          // Check if user is logged in after modal is closed
+          const studentToken = localStorage.getItem('studentToken');
+          setIsLoggedIn(!!studentToken);
+          if (studentToken) {
+            setErrorMessage('');
+          }
+        }} 
+      />
     </div>
   );
 };

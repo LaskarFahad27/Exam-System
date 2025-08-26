@@ -11,14 +11,46 @@ import LogRegModal from '../LogRegModal';
 const NSU_Exam = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const navigate = useNavigate();
 
-     const openModal = () => {
+  useEffect(() => {
+    // Check if user is logged in
+    const studentToken = localStorage.getItem('studentToken');
+    setIsLoggedIn(!!studentToken);
+  }, []);
+
+  const openModal = () => {
     setIsModalOpen(true);
   };
 
   const closeModal = () => {
     setIsModalOpen(false);
+    // Check if user is logged in after modal is closed
+    const studentToken = localStorage.getItem('studentToken');
+    setIsLoggedIn(!!studentToken);
+    if (studentToken) {
+      setErrorMessage('');
+    }
+  };
+
+  const handleStartExam = () => {
+    if (isLoggedIn) {
+      navigate("/exam-selection");
+    } else {
+      setErrorMessage('Please login to access the examinations');
+      openModal();
+    }
+  };
+
+  const handleLogin = () => {
+    openModal();
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('studentToken');
+    setIsLoggedIn(false);
   };
 
   const adminLogin = () => {
@@ -26,7 +58,7 @@ const NSU_Exam = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 pb-24">
       {/* Navigation */}
       <nav className="bg-white shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -48,7 +80,18 @@ const NSU_Exam = () => {
                 <button className="bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transform hover:scale-105 transition-all duration-200 shadow-lg"
                       onClick={adminLogin}>
                    Admin Login
-              </button>
+                </button>
+                {isLoggedIn ? (
+                  <button className="bg-red-600 text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-red-700 transform hover:scale-105 transition-all duration-200 shadow-lg"
+                        onClick={handleLogout}>
+                    Logout
+                  </button>
+                ) : (
+                  <button className="bg-green-600 text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-green-700 transform hover:scale-105 transition-all duration-200 shadow-lg"
+                        onClick={handleLogin}>
+                    Login
+                  </button>
+                )}
               </div>
             </div>
 
@@ -72,6 +115,11 @@ const NSU_Exam = () => {
               <a href="#testimonials" className="text-gray-700 hover:text-blue-600 block px-3 py-2 text-base font-medium">Testimonials</a>
               <a href="#contact" className="text-gray-700 hover:text-blue-600 block px-3 py-2 text-base font-medium">Contact</a>
               <div onClick={adminLogin} className="text-gray-700 hover:text-blue-600 block px-3 py-2 text-base font-medium">Admin Login</div>
+              {isLoggedIn ? (
+                <div onClick={handleLogout} className="text-red-600 hover:text-red-700 block px-3 py-2 text-base font-medium">Logout</div>
+              ) : (
+                <div onClick={handleLogin} className="text-green-600 hover:text-green-700 block px-3 py-2 text-base font-medium">Login</div>
+              )}
             </div>
           </div>
         )}
@@ -163,23 +211,21 @@ const NSU_Exam = () => {
           </div><br/><br/>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <button className="bg-blue-600 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-blue-700 transform hover:scale-105 transition-all duration-200 shadow-lg"
-                      onClick ={openModal}>
+                      onClick={handleStartExam}>
                    Start Exam
                 <ChevronRight className="inline-block ml-2 w-5 h-5" />
               </button>
             </div>
+            {!isLoggedIn && errorMessage && (
+              <div className="text-center mt-4">
+                <p className="text-red-600 text-sm">{errorMessage}</p>
+              </div>
+            )}
         </div>
       </section>
 
       {/* Render the LogRegModal component */}
       <LogRegModal isOpen={isModalOpen} onClose={closeModal} />
-
-      {/* Footer */}
-<footer className="bg-gray-800 text-white py-6 mt-12">
-  <div className="max-w-7xl mx-auto px-4 text-center">
-    <p className="text-sm">&copy; {new Date().getFullYear()} Developed by <span className="font-semibold">CoreCraft</span></p>
-  </div>
-</footer>
 
     </div>
   );
