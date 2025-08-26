@@ -1,17 +1,8 @@
-import React, { useEffect } from 'react';
-import { addStyles, EditableMathField } from 'react-mathquill';
+import React from 'react';
+import { EditableMathField } from '../src/components/MathLiveWrapper';
 
-// Test component to verify react-mathquill is working
+// Test component to verify MathLive is working
 const MathQuillTest = () => {
-  useEffect(() => {
-    // Initialize MathQuill styles
-    try {
-      addStyles();
-      console.log('MathQuill styles added successfully');
-    } catch (error) {
-      console.error('Error adding MathQuill styles:', error);
-    }
-  }, []);
 
   return (
     <div className="p-4 border rounded-lg">
@@ -30,7 +21,7 @@ const MathQuillTest = () => {
         </div>
       </div>
       <p className="text-sm text-gray-600">
-        If you can see and edit the equation above, MathQuill is working correctly.
+        If you can see and edit the equation above, MathLive is working correctly.
       </p>
     </div>
   );

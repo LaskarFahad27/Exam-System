@@ -4,6 +4,8 @@ import './App.css';
 import NSU_Exam from "./VarsityBasedExam.jsx/NSU_Exam";
 import BRACU_Exam from "./VarsityBasedExam.jsx/BRACU_Exam";
 import AUST_Exam from "./VarsityBasedExam.jsx/AUST_Exam";
+import EWU_Exam from "./VarsityBasedExam.jsx/EWU_Exam";
+import UIU_Exam from "./VarsityBasedExam.jsx/UIU_Exam";
 import OnlineExam from "./OnlineExam";
 import AdminLogin from "./AdminLogin";
 import AdminPanel from "./Admin";
@@ -20,8 +22,8 @@ function App() {
         <Route path="/exam/nsu" element={<NSU_Exam />} />
         <Route path="/exam/bracu" element={<BRACU_Exam />} />
         <Route path="/exam/aust" element={<AUST_Exam />} />
-        {/* <Route path="/exam/ewu" element={<EWU_Exam />} />
-        <Route path="/exam/uiu" element={<UIU_Exam />} /> */}
+        <Route path="/exam/ewu" element={<EWU_Exam />} />
+      <Route path="/exam/uiu" element={<UIU_Exam />} /> 
         <Route path="/exam-selection" element={<ExamSelectionPage />} />
         <Route path="/online_exam" element={<OnlineExam />} />
         <Route path="/adminlogin" element={<AdminLogin />} />

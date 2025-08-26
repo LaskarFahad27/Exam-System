@@ -145,10 +145,23 @@ const OnlineExam = () => {
   useEffect(() => {
     if (timeLeft > 0 && !examCompleted && !submitting && currentSection) {
       const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
+      
+      // Show warning when time is running low
+      if (timeLeft === 60) {
+        toast.warning('1 minute remaining in this section!');
+      } else if (timeLeft === 30) {
+        toast.warning('30 seconds remaining in this section!');
+      } else if (timeLeft === 10) {
+        toast.warning('10 seconds remaining! Section will be auto-submitted soon.');
+      }
+      
       return () => clearTimeout(timer);
     } else if (timeLeft === 0 && !examCompleted && !submitting && currentSection) {
       // Time's up, auto-submit current section
-      handleSubmitSection(true);
+      toast.error('Time is up! Submitting your answers automatically...', { duration: 3000 });
+      setTimeout(() => {
+        handleSubmitSection(true);
+      }, 1000); // Small delay to ensure the toast is shown
     }
   }, [timeLeft, examCompleted, submitting, currentSection]);
 
@@ -242,7 +255,10 @@ const OnlineExam = () => {
       await submitSectionAnswers(userExamId, currentSection.id, formattedAnswers);
       
       if (autoSubmit) {
-        toast.warning('Time expired! Section submitted automatically.');
+        toast.warning('Time expired! Section submitted automatically.', { 
+          duration: 4000,
+          icon: '⏱️'
+        });
       } else {
         toast.success('Section submitted successfully!');
       }
@@ -484,10 +500,21 @@ const OnlineExam = () => {
   if (submitting) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Submitting section...</p>
-          <p className="text-sm text-gray-500">Questions Answered: {getAnsweredCount()}/{questions.length}</p>
+        <div className="text-center p-8 bg-white rounded-lg shadow-md max-w-md">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-6"></div>
+          <h2 className="text-xl font-bold text-gray-800 mb-2">
+            {timeLeft === 0 ? 'Time Expired - Auto Submitting' : 'Submitting Section'}
+          </h2>
+          <p className="text-gray-600 mb-4">
+            {timeLeft === 0 
+              ? 'Your answers are being submitted automatically as the allotted time for this section has ended.'
+              : 'Your answers are being submitted...'}
+          </p>
+          <div className="bg-blue-50 p-3 rounded-lg border border-blue-100 text-sm text-blue-800">
+            <p className="font-medium mb-1">Section Summary</p>
+            <p>Questions Answered: {getAnsweredCount()}/{questions.length}</p>
+            <p>Section: {currentSection?.name || ''} ({currentSectionNumber}/{totalSections})</p>
+          </div>
         </div>
       </div>
     );
@@ -508,10 +535,19 @@ const OnlineExam = () => {
           </div>
           <div className="flex items-center space-x-2">
             <Clock className={`w-5 h-5 ${timeLeft < 300 ? 'text-red-500' : 'text-blue-600'}`} />
-            <span className={`text-xl font-mono font-bold ${timeLeft < 300 ? 'text-red-500' : 'text-gray-900'}`}>
+            <span className={`text-xl font-mono font-bold ${
+              timeLeft < 60 ? 'text-red-500 animate-pulse' : 
+              timeLeft < 300 ? 'text-red-500' : 
+              'text-gray-900'
+            }`}>
               {formatTime(timeLeft)}
             </span>
-            {timeLeft < 300 && <AlertCircle className="w-5 h-5 text-red-500" />}
+            {timeLeft < 300 && (
+              <div className="flex items-center">
+                <AlertCircle className="w-5 h-5 text-red-500" />
+                {timeLeft < 60 && <span className="text-xs text-red-500 ml-1">Auto-submit soon!</span>}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -529,6 +565,26 @@ const OnlineExam = () => {
             <div className="flex items-center justify-between text-sm opacity-90">
               <span>Answer all questions to the best of your ability</span>
               <span>Duration: {currentSection.duration_minutes} minutes</span>
+            </div>
+            
+            {/* Time progress bar */}
+            <div className="mt-3">
+              <div className="h-1.5 w-full bg-white bg-opacity-30 rounded-full overflow-hidden">
+                <div 
+                  className={`h-1.5 rounded-full transition-all duration-1000 ${
+                    timeLeft < 60 ? 'bg-red-300 animate-pulse' : 
+                    timeLeft < 300 ? 'bg-red-300' : 
+                    'bg-white'
+                  }`} 
+                  style={{ 
+                    width: `${(timeLeft / (currentSection.duration_minutes * 60)) * 100}%` 
+                  }}
+                ></div>
+              </div>
+              <div className="flex justify-between text-xs mt-1 text-white text-opacity-80">
+                <span>{Math.floor(timeLeft / 60)} minutes left</span>
+                <span>{Math.floor((timeLeft / (currentSection.duration_minutes * 60)) * 100)}% time remaining</span>
+              </div>
             </div>
           </div>
         </div>
@@ -629,14 +685,7 @@ const OnlineExam = () => {
       </div>
 
       {/* Footer */}
-      <footer className="bg-gray-800 text-white py-6 mt-12">
-        <div className="max-w-7xl mx-auto px-4 text-center">
-          <p className="text-sm">
-            &copy; {new Date().getFullYear()} Developed by{' '}
-            <span className="font-semibold">CoreCraft</span>
-          </p>
-        </div>
-      </footer>
+   
     </div>
   );
 };

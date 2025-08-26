@@ -1,8 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from "react-router-dom";
 import Header from '../components/Header';
+import { 
+  Menu,
+  X
+} from 'lucide-react';
+import logo from "../assets/logo.png"
 
-const BRACU_Exam = () => {
+const EWU_Exam = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -27,7 +32,7 @@ const BRACU_Exam = () => {
               Smart, Secure & <span className="text-blue-600">University-Style</span> Online Exams
             </h1>
             <p className="text-xl md:text-2xl text-gray-700 mb-8 max-w-4xl mx-auto">
-              BRACU Exam System Is Under Development. It Will Be Launched Soon
+              EWU Exam System Is Under Development. It Will Be Launched Soon
             </p>
           </div>
           
@@ -119,4 +124,4 @@ const BRACU_Exam = () => {
   );
 };
 
-export default BRACU_Exam;
+export default EWU_Exam;

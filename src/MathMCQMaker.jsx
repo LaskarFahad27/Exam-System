@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { addStyles, EditableMathField } from "react-mathquill";
+import { addStyles, EditableMathField } from "./components/MathLiveWrapper";
 
-// Initialize MathQuill
+// MathLive styles are loaded automatically
 addStyles();
 
 // Math symbols organized by category
@@ -348,15 +348,9 @@ const MathMCQMaker = ({ activeSection, addQuestion }) => {
           <label className="block text-sm font-medium text-gray-700">
             Math Equation - Supports keyboard input and symbols
           </label>
-          <button
-            onClick={() => openSymbolPalette('question')}
-            className="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600 transition-colors"
-          >
-            Add Math Symbols
-          </button>
         </div>
         <div 
-          className="math-field-container border-2 p-3 rounded bg-white min-h-[60px] focus-within:border-blue-500 transition-colors"
+          className="math-field-container p-2 bg-white min-h-[45px] transition-colors"
         >
           <EditableMathField
             latex={questionForm.questionLatex}
@@ -375,9 +369,6 @@ const MathMCQMaker = ({ activeSection, addQuestion }) => {
 
       <div className="mt-4 mb-2">
         <h3 className="font-medium text-gray-800">Options</h3>
-        <p className="text-xs text-gray-500 mb-2">
-          Add text and/or equations for each option. Click the radio button to set the correct answer.
-        </p>
       </div>
 
       {questionForm.options.map((opt, index) => (
@@ -403,15 +394,9 @@ const MathMCQMaker = ({ activeSection, addQuestion }) => {
           />
           <div className="flex justify-between items-center mb-1">
             <span className="text-xs text-gray-500">Math equation - Supports keyboard & symbols</span>
-            <button
-              onClick={() => openSymbolPalette('option', index)}
-              className="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600 transition-colors"
-            >
-              Add Symbols
-            </button>
           </div>
           <div 
-            className="math-field-container border-2 p-2 rounded bg-white min-h-[45px] focus-within:border-blue-500 transition-colors"
+            className="math-field-container p-1 bg-white min-h-[35px] transition-colors"
           >
             <EditableMathField
               latex={opt.latex}

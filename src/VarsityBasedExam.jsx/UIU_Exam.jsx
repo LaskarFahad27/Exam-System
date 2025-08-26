@@ -1,8 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from "react-router-dom";
 import Header from '../components/Header';
+import { 
+  CheckCircle, 
+  ChevronRight,
+  Menu,
+  X
+} from 'lucide-react';
+import logo from "../assets/logo.png"
 
-const BRACU_Exam = () => {
+const UIU_Exam = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -119,4 +126,4 @@ const BRACU_Exam = () => {
   );
 };
 
-export default BRACU_Exam;
+export default UIU_Exam;

@@ -53,6 +53,12 @@ const AdminPanel = () => {
   const [sectionToDelete, setSectionToDelete] = useState(null);
   const [showExamDeleteConfirm, setShowExamDeleteConfirm] = useState(false);
   const [examToDelete, setExamToDelete] = useState(null);
+  const [loadingExamDelete, setLoadingExamDelete] = useState(false);
+  const [loadingExamEdit, setLoadingExamEdit] = useState({});
+  const [loadingSectionDelete, setLoadingSectionDelete] = useState(false);
+  const [loadingCreateSection, setLoadingCreateSection] = useState(false);
+  const [loadingAddQuestion, setLoadingAddQuestion] = useState(false);
+  const [loadingRemoveQuestion, setLoadingRemoveQuestion] = useState({});
 
   const handleEditExam = async (examId) => {
     try {
@@ -209,6 +215,8 @@ const AdminPanel = () => {
   }, [activeTab]);
 
 
+  const [loadingAddExam, setLoadingAddExam] = useState(false);
+
   const handleAddStudent = () => {
     if (studentForm.name && studentForm.id && studentForm.email) {
       setStudents([...students, { ...studentForm, enrolledDate: new Date().toISOString().split('T')[0] }]);
@@ -220,6 +228,7 @@ const AdminPanel = () => {
   const handleAddExam = async () => {
   if (examForm.title) {
     try {
+      setLoadingAddExam(true);
       const res = await createExam(examForm.title, examForm.description);
       const examId = res.data.exam.id;
 
@@ -229,6 +238,8 @@ const AdminPanel = () => {
       console.log("exam id", examId);
     } catch (error) {
       console.error("Failed to create exam:", error);
+    } finally {
+      setLoadingAddExam(false);
     }
   }
 };
@@ -243,6 +254,7 @@ const AdminPanel = () => {
     // Check if time and sequence order are provided
     if (examForm[activeSection].timeLimit && examForm[activeSection].sequenceOrder) {
       try {
+        setLoadingCreateSection(true);
         const res = await createSection(activeSection, examId, examForm[activeSection].timeLimit, examForm[activeSection].sequenceOrder);
         console.log("Create section response:", res);
         if(res.success){
@@ -256,6 +268,8 @@ const AdminPanel = () => {
       } catch (error) {
         console.error("Failed to create section:", error);
         toast.error("Failed to create section");
+      } finally {
+        setLoadingCreateSection(false);
       }
     } else {
       toast.error("Please provide both duration and sequence order");
@@ -264,6 +278,7 @@ const AdminPanel = () => {
 
  const addQuestion = async(section, newQuestion) => {
   try {
+    setLoadingAddQuestion(true);
     // Get the section ID for the current active section
     let currentSectionId = sectionId;
     
@@ -309,6 +324,8 @@ const AdminPanel = () => {
   } catch (error) {
     console.error("Failed to create question:", error);
     toast.error('Failed to add question');
+  } finally {
+    setLoadingAddQuestion(false);
   }
 };
 
@@ -328,6 +345,7 @@ const AdminPanel = () => {
 
   const removeQuestion = async (section, id) => {
     try {
+      setLoadingRemoveQuestion(prev => ({ ...prev, [id]: true }));
       // Only call API if the question has an ID (meaning it exists in database)
       if (id && typeof id === 'number') {
         await deleteQuestion(id);
@@ -345,6 +363,8 @@ const AdminPanel = () => {
     } catch (error) {
       console.error("Failed to delete question:", error);
       toast.error('Failed to delete question');
+    } finally {
+      setLoadingRemoveQuestion(prev => ({ ...prev, [id]: false }));
     }
   };
 
@@ -357,6 +377,7 @@ const AdminPanel = () => {
     if (!sectionToDelete || !currentExamData) return;
 
     try {
+      setLoadingSectionDelete(true);
       // Find the section ID from currentExamData
       const sectionData = currentExamData.sections.find(
         s => s.name.toLowerCase() === sectionToDelete.key
@@ -398,6 +419,7 @@ const AdminPanel = () => {
       console.error("Failed to delete section:", error);
       toast.error('Failed to delete section');
     } finally {
+      setLoadingSectionDelete(false);
       setShowDeleteConfirm(false);
       setSectionToDelete(null);
     }
@@ -413,12 +435,16 @@ const AdminPanel = () => {
     });
   };
 
+  const [loadingDelete, setLoadingDelete] = useState({});
+
   const deleteStudent = async (id) => {
     if (window.confirm("Are you sure you want to delete this student?")) {
       try {
+        setLoadingDelete(prev => ({ ...prev, [id]: true }));
         const adminToken = localStorage.getItem("adminToken");
         if (!adminToken) {
           toast.error("Authentication required");
+          setLoadingDelete(prev => ({ ...prev, [id]: false }));
           return;
         }
 
@@ -441,6 +467,8 @@ const AdminPanel = () => {
       } catch (error) {
         console.error("Error deleting student:", error);
         toast.error("Failed to delete student");
+      } finally {
+        setLoadingDelete(prev => ({ ...prev, [id]: false }));
       }
     }
   };
@@ -454,6 +482,7 @@ const AdminPanel = () => {
     if (!examToDelete) return;
     
     try {
+      setLoadingExamDelete(true);
       await dropExam(examToDelete.id);
       setExams(exams.filter(exam => exam.id !== examToDelete.id));
       toast.success('Exam deleted successfully!');
@@ -484,6 +513,7 @@ const AdminPanel = () => {
         toast.error('Failed to delete exam: ' + error.message);
       }
     } finally {
+      setLoadingExamDelete(false);
       setShowExamDeleteConfirm(false);
       setExamToDelete(null);
     }
@@ -504,12 +534,12 @@ const AdminPanel = () => {
                 <p className="text-gray-600 text-sm">Campus Pro Examination System</p>
               </div>
             </div>
-            <button
+            {/* <button
               onClick={() => setIsAuthenticated(false)}
               className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
             >
               Logout
-            </button>
+            </button> */}
           </div>
         </div>
       </div>
@@ -571,13 +601,13 @@ const AdminPanel = () => {
                       <div className="bg-blue-100 w-12 h-12 rounded-full flex items-center justify-center">
                         <Users className="w-6 h-6 text-blue-600" />
                       </div>
-                      <button
+                      {/* <button
                         onClick={() => deleteStudent(student.id)}
                         className="text-red-500 hover:text-red-700 transition-colors"
                         title="Delete Student"
                       >
                         <Trash2 className="w-5 h-5" />
-                      </button>
+                      </button> */}
                     </div>
                     <h3 className="text-lg font-semibold text-gray-800 mb-3">{student.name}</h3>
                     <div className="space-y-2">
@@ -852,14 +882,18 @@ const AdminPanel = () => {
 
         <button
           onClick={handleCreateSection}
-          disabled={!examForm.english.timeLimit || !examForm.english.sequenceOrder}
+          disabled={!examForm.english.timeLimit || !examForm.english.sequenceOrder || loadingCreateSection}
           className={`ml-3 ${
             !examForm.english.timeLimit || !examForm.english.sequenceOrder
               ? "bg-gray-400 cursor-not-allowed"
               : "bg-blue-600 hover:bg-blue-700"
-          } text-white px-4 py-2 rounded-lg transition-colors`}
+          } text-white px-4 py-2 rounded-lg transition-colors flex items-center justify-center`}
         >
-          Create Section
+          {loadingCreateSection ? (
+            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+          ) : (
+            "Create Section"
+          )}
         </button>
       </div>
     )}
@@ -872,6 +906,7 @@ const AdminPanel = () => {
             activeSection={activeSection}
             examForm={examForm}
             removeQuestion={removeQuestion}
+            loadingRemoveQuestion={loadingRemoveQuestion}
           />
       </div>
     )}
@@ -917,14 +952,18 @@ const AdminPanel = () => {
         <br />
         <button
           onClick={handleCreateSection}
-          disabled={!examForm.math.timeLimit || !examForm.math.sequenceOrder}
+          disabled={!examForm.math.timeLimit || !examForm.math.sequenceOrder || loadingCreateSection}
           className={`ml-3 ${
             !examForm.math.timeLimit || !examForm.math.sequenceOrder
               ? "bg-gray-400 cursor-not-allowed"
               : "bg-green-600 hover:bg-green-700"
-          } text-white px-4 py-2 rounded-lg transition-colors`}
+          } text-white px-4 py-2 rounded-lg transition-colors flex items-center justify-center`}
         >
-          Create Section
+          {loadingCreateSection ? (
+            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+          ) : (
+            "Create Section"
+          )}
         </button>
       </div>
     )}
@@ -937,6 +976,7 @@ const AdminPanel = () => {
             activeSection={activeSection}
             examForm={examForm}
             removeQuestion={removeQuestion}
+            loadingRemoveQuestion={loadingRemoveQuestion}
           />
       </div>
     )}
@@ -982,14 +1022,18 @@ const AdminPanel = () => {
         <br />
         <button
           onClick={handleCreateSection}
-          disabled={!examForm.reading.timeLimit || !examForm.reading.sequenceOrder}
+          disabled={!examForm.reading.timeLimit || !examForm.reading.sequenceOrder || loadingCreateSection}
           className={`ml-3 ${
             !examForm.reading.timeLimit || !examForm.reading.sequenceOrder
               ? "bg-gray-400 cursor-not-allowed"
               : "bg-purple-600 hover:bg-purple-700"
-          } text-white px-4 py-2 rounded-lg transition-colors`}
+          } text-white px-4 py-2 rounded-lg transition-colors flex items-center justify-center`}
         >
-          Create Section
+          {loadingCreateSection ? (
+            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+          ) : (
+            "Create Section"
+          )}
         </button>
       </div>
     )}
@@ -1002,6 +1046,7 @@ const AdminPanel = () => {
             activeSection={activeSection}
             examForm={examForm}
             removeQuestion={removeQuestion}
+            loadingRemoveQuestion={loadingRemoveQuestion}
           />
       </div>
     )}
@@ -1105,10 +1150,14 @@ const AdminPanel = () => {
                 <div className="flex space-x-3 pt-6 border-t">
                 <button
                   onClick={handleAddExam}
-                  className="flex-1 bg-green-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-green-700 transition-colors"
-                  disabled={isEditingExam}
+                  className="flex-1 bg-green-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center justify-center"
+                  disabled={isEditingExam || loadingAddExam}
                 >
-                  Create Exam
+                  {loadingAddExam ? (
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    "Create Exam"
+                  )}
                 </button>
                 <button
                  onClick={() => {
@@ -1146,9 +1195,14 @@ const AdminPanel = () => {
               <div className="flex space-x-3">
                 <button
                   onClick={confirmDeleteSection}
-                  className="flex-1 bg-red-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-red-700 transition-colors"
+                  className="flex-1 bg-red-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-red-700 transition-colors flex items-center justify-center"
+                  disabled={loadingSectionDelete}
                 >
-                  Confirm
+                  {loadingSectionDelete ? (
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    "Confirm"
+                  )}
                 </button>
                 <button
                   onClick={() => {
@@ -1184,9 +1238,14 @@ const AdminPanel = () => {
               <div className="flex space-x-3">
                 <button
                   onClick={confirmDeleteExam}
-                  className="flex-1 bg-red-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-red-700 transition-colors"
+                  className="flex-1 bg-red-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-red-700 transition-colors flex items-center justify-center"
+                  disabled={loadingExamDelete}
                 >
-                  Confirm
+                  {loadingExamDelete ? (
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    "Confirm"
+                  )}
                 </button>
                 <button
                   onClick={() => {
