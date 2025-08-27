@@ -153,18 +153,27 @@ const OnlineExam = () => {
       return;
     }
     
+    // Immediately check if we're already in submission process
+    if (submitting) {
+      console.log('Already in submission process, preventing duplicate auto-submission');
+      return;
+    }
+    
     // Check if this section has already been submitted
     if (isSectionSubmitted(userExamId, currentSection.id)) {
       console.log('Section already auto-submitted, waiting for server response');
       return;
     }
     
-    // Start submission process
+    // Start submission process and mark state first to prevent race conditions
     setSubmitting(true);
-    toastService.error('Time is up! Submitting your answers automatically...', { duration: 3000 });
     
-    // Mark as submitted to prevent duplicate submissions
+    // Mark as submitted immediately to prevent duplicate submissions
+    // This needs to happen before any async operations
     markSectionSubmitted(userExamId, currentSection.id);
+    
+    console.log('Starting auto-submission for section:', currentSection.id);
+    toastService.error('Time is up! Submitting your answers automatically...', { duration: 3000 });
     
     // Format answers for API - using correct format with answer_text
     const formattedAnswers = Object.entries(answers).map(([questionId, answer]) => ({
@@ -178,9 +187,14 @@ const OnlineExam = () => {
       answers: formattedAnswers
     });
 
+    // Store current section info locally to prevent closures from accessing changing state
+    const sectionId = currentSection.id;
+    const currentSectionNum = currentSectionNumber;
+    const totalSectionCount = totalSections;
+
     try {
       // Submit answers
-      await submitSectionAnswers(userExamId, currentSection.id, formattedAnswers);
+      await submitSectionAnswers(userExamId, sectionId, formattedAnswers);
       
       toastService.warning('Time expired! Section submitted automatically.', { 
         duration: 4000,
@@ -188,10 +202,10 @@ const OnlineExam = () => {
       });
       
       // Check if there are more sections
-      if (currentSectionNumber < totalSections) {
+      if (currentSectionNum < totalSectionCount) {
         console.log('Auto-submit successful, loading next section...');
         // Clear the submission flag for this section
-        clearSectionSubmitted(userExamId, currentSection.id);
+        clearSectionSubmitted(userExamId, sectionId);
         // Move to next section
         setTimeout(() => {
           loadNextSection();
@@ -206,17 +220,18 @@ const OnlineExam = () => {
       toastService.error('Auto-submission failed, but proceeding to next section');
       
       // Even if submission fails, proceed to next section after a delay
-      if (currentSectionNumber < totalSections) {
+      if (currentSectionNum < totalSectionCount) {
         setTimeout(() => {
-          clearSectionSubmitted(userExamId, currentSection.id);
+          clearSectionSubmitted(userExamId, sectionId);
           loadNextSection();
         }, 3000);
       }
     }
   };
 
-  // Timer effect
+  // Timer effect with improved auto-submission handling
   useEffect(() => {
+    // Keep the timer running
     if (timeLeft > 0 && !examCompleted && !submitting && currentSection) {
       const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
       
@@ -230,28 +245,59 @@ const OnlineExam = () => {
       }
       
       return () => clearTimeout(timer);
-    } else if (timeLeft === 0 && !examCompleted && currentSection) {
-      // Time is up - simplified approach to avoid stuck state
+    } 
+    // Handle time expiration only once
+    else if (timeLeft === 0 && !examCompleted && currentSection) {
+      console.log('Time expired, checking submission status');
       
-      // Only proceed if we're not already in the process of submitting
-      if (submitting) {
-        // If we're already submitting, add a safety timeout to ensure we don't get stuck
+      // Create a unique key for this specific auto-submission attempt
+      const autoSubmitKey = `auto_submit_${userExamId}_${currentSection.id}_triggered`;
+      
+      // Check if we've already triggered auto-submission for this section
+      if (localStorage.getItem(autoSubmitKey) === 'true') {
+        console.log('Auto-submission already triggered for this section, preventing duplicate');
+        return;
+      }
+      
+      // Prevent multiple triggers by checking both React state and localStorage flag
+      if (submitting || isSectionSubmitted(userExamId, currentSection.id)) {
+        console.log('Already submitting or submitted, not triggering another submission');
+        
+        // Safety timeout to prevent getting stuck if something goes wrong with submission
         const stuckTimer = setTimeout(() => {
-          console.log('Submission taking too long, forcing progress to next section');
-          clearSectionSubmitted(userExamId, currentSection.id);
-          setSubmitting(false);
-          if (currentSectionNumber < totalSections) {
-            loadNextSection();
+          console.log('Safety timeout: Ensuring we move to next section if submission is stuck');
+          // Only proceed if we're still on this section and not completed
+          if (!examCompleted && currentSection) {
+            clearSectionSubmitted(userExamId, currentSection.id);
+            localStorage.removeItem(autoSubmitKey);
+            setSubmitting(false);
+            if (currentSectionNumber < totalSections) {
+              loadNextSection();
+            }
           }
-        }, 8000); // Give it 8 seconds to complete before forcing
+        }, 15000); // Give 15 seconds before forcing next section
         
         return () => clearTimeout(stuckTimer);
       }
       
-      // Call the auto-submission function
-      autoSubmitSection();
+      // Mark that we've triggered auto-submission for this section
+      localStorage.setItem(autoSubmitKey, 'true');
+      
+      // If we're not already submitting, trigger auto-submission
+      console.log('Time expired, triggering auto-submission');
+      setSubmitting(true); // Mark as submitting immediately to prevent race conditions
+      
+      // Use setTimeout to ensure state update has time to propagate
+      // This helps prevent multiple submissions
+      setTimeout(() => {
+        // Double-check we still need to submit
+        if (!isSectionSubmitted(userExamId, currentSection.id)) {
+          autoSubmitSection();
+        }
+      }, 0);
     }
-  }, [timeLeft, examCompleted, submitting, currentSection, userExamId, currentSectionNumber, totalSections, answers]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeLeft, examCompleted, submitting]);
 
   useEffect(() => {
     // When the exam is completed, clear all localStorage flags for this exam
@@ -300,8 +346,17 @@ const OnlineExam = () => {
         // If the previous section for this exam was marked as submitted but we're still getting a new section,
         // make sure to clear any existing submission flags
         if (currentSection && currentSection.id) {
+          // Clear both submission and auto-submission flags for the previous section
           clearSectionSubmitted(userExamId, currentSection.id);
+          // Clear auto-submit trigger flag
+          const previousAutoSubmitKey = `auto_submit_${userExamId}_${currentSection.id}_triggered`;
+          localStorage.removeItem(previousAutoSubmitKey);
         }
+        
+        // Clear any possible existing flags for the new section (in case of a previous incomplete attempt)
+        clearSectionSubmitted(userExamId, section.id);
+        const newAutoSubmitKey = `auto_submit_${userExamId}_${section.id}_triggered`;
+        localStorage.removeItem(newAutoSubmitKey);
         
         setCurrentSection(section);
         setQuestions(questions);
@@ -362,6 +417,12 @@ const OnlineExam = () => {
     if (isSectionSubmitted(userExamId, currentSection.id)) {
       console.log('Section already submitted, waiting for server response or moving to next section');
       return;
+    }
+    
+    // For manual submissions, clear any auto-submit flags to prevent conflicts
+    if (!autoSubmit) {
+      const autoSubmitKey = `auto_submit_${userExamId}_${currentSection.id}_triggered`;
+      localStorage.removeItem(autoSubmitKey);
     }
 
     // If this is an auto-submit triggered by timer expiration, use the dedicated function
