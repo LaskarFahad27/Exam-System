@@ -75,8 +75,10 @@ const LogRegModal = ({ isOpen, onClose }) => {
         setEmail('');
         setPhone('');
         setPassword('');
-        setIsLogin(true);
+        //setIsLogin(true);
         toastService.success("Registered successfully");
+        localStorage.setItem("studentToken", data.data.token);
+        handleClose();
       } else {
         throw new Error(data.message || 'Registration failed');
       }
