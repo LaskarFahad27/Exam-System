@@ -217,75 +217,75 @@ const OnlineExam = () => {
 
   //Detect Developer Tool
    
-  // useEffect(() => {
-  //   let detected = false;
+  useEffect(() => {
+    let detected = false;
 
-  //   const detectByDimensions = () => {
-  //     if (
-  //       window.outerHeight - window.innerHeight > 200 ||
-  //       window.outerWidth - window.innerWidth > 200
-  //     ) {
-  //       detected = true;
-  //       setOpen(true);
-  //       alert("You have violated the rules by opening the developer tools. Therefore, you are not eligible to continue the examination");
-  //       navigate("/"); 
-  //     }
-  //   };
+    const detectByDimensions = () => {
+      if (
+        window.outerHeight - window.innerHeight > 200 ||
+        window.outerWidth - window.innerWidth > 200
+      ) {
+        detected = true;
+        setOpen(true);
+        alert("You have violated the rules by opening the developer tools. Therefore, you are not eligible to continue the examination");
+        navigate("/"); 
+      }
+    };
 
-  //   const detectByConsole = () => {
-  //     const element = new Image();
-  //     Object.defineProperty(element, "id", {
-  //       get: function () {
-  //         detected = true;
-  //         setOpen(true);
-  //         alert("You have violated the rules by opening the developer tools. Therefore, you are not eligible to continue the examination");
-  //         navigate("/"); 
-  //       }
-  //     });
-  //     console.log(element);
-  //   };
+    const detectByConsole = () => {
+      const element = new Image();
+      Object.defineProperty(element, "id", {
+        get: function () {
+          detected = true;
+          setOpen(true);
+          alert("You have violated the rules by opening the developer tools. Therefore, you are not eligible to continue the examination");
+          navigate("/"); 
+        }
+      });
+      console.log(element);
+    };
 
-  //   const detectByDebugger = () => {
-  //     const start = performance.now();
-  //     debugger;
-  //     const end = performance.now();
-  //     if (end - start > 100) {
-  //       detected = true;
-  //       setOpen(true);
-  //       alert("You have violated the rules by opening the developer tools. Therefore, you are not eligible to continue the examination");
-  //       navigate("/"); 
-  //     }
-  //   };
+    const detectByDebugger = () => {
+      const start = performance.now();
+      debugger;
+      const end = performance.now();
+      if (end - start > 100) {
+        detected = true;
+        setOpen(true);
+        alert("You have violated the rules by opening the developer tools. Therefore, you are not eligible to continue the examination");
+        navigate("/"); 
+      }
+    };
 
-  //   const detectAll = () => {
-  //     if (!detected) {
-  //       detectByDimensions();
-  //       detectByConsole();
-  //       detectByDebugger();
-  //     }
-  //   };
+    const detectAll = () => {
+      if (!detected) {
+        detectByDimensions();
+        detectByConsole();
+        detectByDebugger();
+      }
+    };
 
-  //   const interval = setInterval(detectAll, 1000);
+    const interval = setInterval(detectAll, 1000);
 
-  //   return () => clearInterval(interval);
-  // }, []);
+    return () => clearInterval(interval);
+  }, []);
    
-  // //Detect Tab Switch
+  //Detect Tab Switch
 
-  // useEffect(() => {
-  //   const handleVisibilityChange = () => {
-  //     if (document.visibilityState === "visible") {
-  //       alert("You have violated the rules by switching tab. Therefore, you are not eligible to continue the examination");
-  //       navigate("/");
-  //     }
-  //   };
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        alert("You have violated the rules by switching tab. Therefore, you are not eligible to continue the examination");
+        navigate("/");
+      }
+    };
 
-  //   document.addEventListener("visibilitychange", handleVisibilityChange);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
     
-  //   return () => {
-  //     document.removeEventListener("visibilitychange", handleVisibilityChange);
-  //   };
-  // }, [navigate]);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [navigate]);
 
   //Prevent Click Events
 

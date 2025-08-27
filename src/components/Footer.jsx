@@ -24,13 +24,13 @@ const Footer = () => {
             </div>
             <p className="mb-4 text-white text-lg font-medium">আমাদের সাথে যুক্ত থাকুন</p>
             <div className="flex space-x-4">
-              <a href="#" className="bg-white rounded-full p-2 hover:bg-gray-200 transition-colors" style={{ color: "#3f5ad5" }}>
+              <a href="https://www.facebook.com/campusprobd?_rdc=1&_rdr#" className="bg-white rounded-full p-2 hover:bg-gray-200 transition-colors" style={{ color: "#3f5ad5" }}>
                 <Facebook size={20} />
               </a>
               <a href="#" className="bg-white rounded-full p-2 hover:bg-gray-200 transition-colors" style={{ color: "#3f5ad5" }}>
                 <Twitter size={20} />
               </a>
-              <a href="#" className="bg-white rounded-full p-2 hover:bg-gray-200 transition-colors" style={{ color: "#3f5ad5" }}>
+              <a href="https://www.youtube.com/@iamutsho" className="bg-white rounded-full p-2 hover:bg-gray-200 transition-colors" style={{ color: "#3f5ad5" }}>
                 <Youtube size={20} />
               </a>
             </div>
