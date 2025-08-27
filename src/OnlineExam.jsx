@@ -5,6 +5,8 @@ import { getNextSection, submitSectionAnswers, getExamResults } from './utils/ap
 import { navigateAndScrollToTop } from './utils/navigation';
 import toastService from './utils/toast.jsx';
 import { isSectionSubmitted, markSectionSubmitted, clearSectionSubmitted, clearExamSubmissionFlags } from './utils/examSubmission';
+import { initializeExamSecurity } from './utils/examSecurity.js';
+import { SecurityModalContainer } from './utils/securityModal.jsx';
 import 'katex/dist/katex.min.css';
 import { InlineMath } from 'react-katex';
 
@@ -80,6 +82,7 @@ const convertRadicalToExponential = (text) => {
   return converted;
 };
 
+
 const renderMathContent = (text) => {
   if (!text || typeof text !== 'string') return text;
   
@@ -122,6 +125,17 @@ const OnlineExam = () => {
   const [examCompleted, setExamCompleted] = useState(false);
   const [examResults, setExamResults] = useState(null);
   const [loadingResults, setLoadingResults] = useState(false);
+
+  // Initialize security features
+  useEffect(() => {
+    // Initialize security features and get cleanup function
+    const cleanupSecurity = initializeExamSecurity(navigate);
+    
+    // Return cleanup function
+    return () => {
+      cleanupSecurity();
+    };
+  }, [navigate]);
 
   useEffect(() => {
     // Check if we have the required state
@@ -672,6 +686,9 @@ const OnlineExam = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Security Modal Container */}
+      <SecurityModalContainer />
+      
       {/* Header */}
       <div className="bg-white shadow-sm border-b sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-4 py-3 sm:py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center">

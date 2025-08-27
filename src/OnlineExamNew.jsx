@@ -4,6 +4,8 @@ import { Clock, AlertCircle, CheckCircle, ArrowRight, User, Shield, BookOpen, Ca
 import { getNextSection, submitSectionAnswers, getExamResults } from './utils/api';
 import toastService from './utils/toast.jsx';
 import { isSectionSubmitted, markSectionSubmitted, clearSectionSubmitted, clearExamSubmissionFlags } from './utils/examSubmission';
+import { initializeExamSecurity } from './utils/examSecurity.js';
+import { SecurityModalContainer } from './utils/securityModal.jsx';
 import 'katex/dist/katex.min.css';
 import { InlineMath } from 'react-katex';
 
@@ -118,6 +120,17 @@ const OnlineExam = () => {
   const [examCompleted, setExamCompleted] = useState(false);
   const [examResults, setExamResults] = useState(null);
   const [loadingResults, setLoadingResults] = useState(false);
+
+  // Initialize security features
+  useEffect(() => {
+    // Initialize security features and get cleanup function
+    const cleanupSecurity = initializeExamSecurity(navigate);
+    
+    // Return cleanup function
+    return () => {
+      cleanupSecurity();
+    };
+  }, [navigate]);
 
   useEffect(() => {
     // Check if we have the required state
@@ -271,6 +284,7 @@ const OnlineExam = () => {
     }
   };
   */
+ 
 
   const loadNextSection = async () => {
     try {
@@ -615,6 +629,9 @@ const OnlineExam = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Security Modal Container */}
+      <SecurityModalContainer />
+      
       {/* Header */}
       <div className="bg-white shadow-sm border-b sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
