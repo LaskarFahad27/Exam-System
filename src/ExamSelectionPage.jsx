@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Clock, Book, Calendar, User, Shield, ChevronRight } from 'lucide-react';
-import { getExamsForUser, startExam } from './utils/api';
+import { getExamsForUser, startExam, logout } from './utils/api';
 import { navigateAndScrollToTop } from './utils/navigation';
 import toastService from './utils/toast.jsx';
 
@@ -60,10 +60,18 @@ const ExamSelectionPage = () => {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('studentToken');
-    navigateAndScrollToTop(navigate, '/');
-    toastService.success('Logged out successfully');
+  const handleLogout = async () => {
+    try {
+      await logout(); // Call the API logout function
+      navigateAndScrollToTop(navigate, '/');
+      toastService.success('Logged out successfully');
+    } catch (error) {
+      console.error('Logout error:', error);
+      // If there's an error with the API call, still remove the token as a fallback
+      localStorage.removeItem('studentToken');
+      navigateAndScrollToTop(navigate, '/');
+      toastService.success('Logged out successfully');
+    }
   };
 
   if (loading) {

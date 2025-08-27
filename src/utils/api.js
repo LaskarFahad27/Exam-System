@@ -1,4 +1,4 @@
-export const BACKEND_URL = "http://172.232.104.77:5000/api";
+export const BACKEND_URL = "http://localhost:5000/api";
 
 
 export async function getExams() {
@@ -460,6 +460,201 @@ export async function getExamResults(examId) {
     }
   } catch (error) {
     console.error("Error fetching exam results:", error);
+    throw error;
+  }
+}
+
+/**
+ * Get all active sessions for the current user
+ * @returns {Promise<Object>} Object containing the sessions array
+ */
+export async function getUserSessions() {
+  const studentToken = localStorage.getItem("studentToken");
+
+  if (!studentToken) {
+    throw new Error("Authentication required");
+  }
+
+  try {
+    const response = await fetch(`${BACKEND_URL}/auth/sessions`, {
+      method: "GET",
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${studentToken}`
+      },
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      console.log("User sessions fetched successfully:", data);
+      
+      // Add client-side fetch timestamp to help with time calculations
+      const clientFetchTime = new Date().toISOString();
+      
+      // Process the data to normalize timestamps
+      if (data.data && data.data.sessions) {
+        data.data.sessions = data.data.sessions.map(session => ({
+          ...session,
+          client_fetch_time: clientFetchTime
+        }));
+      }
+      
+      // Return the entire response which contains sessions array inside data
+      return data;
+    }
+    else {
+      throw new Error(data.message || "Failed to fetch user sessions");
+    }
+  } catch (error) {
+    console.error("Error fetching user sessions:", error);
+    throw error;
+  }
+}
+
+/**
+ * Get the count of active sessions for the current user
+ * @returns {Promise<Object>} Object containing the session count
+ */
+export async function getSessionCount() {
+  const studentToken = localStorage.getItem("studentToken");
+
+  if (!studentToken) {
+    throw new Error("Authentication required");
+  }
+
+  try {
+    // Since there's no dedicated count endpoint, we'll use the sessions endpoint
+    // and get the count from the response
+    const response = await fetch(`${BACKEND_URL}/auth/sessions`, {
+      method: "GET",
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${studentToken}`
+      },
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      // Return an object with the count extracted from the response
+      return { 
+        count: data.data.total || data.data.sessions.length || 0
+      };
+    }
+    else {
+      throw new Error(data.message || "Failed to fetch session count");
+    }
+  } catch (error) {
+    console.error("Error fetching session count:", error);
+    throw error;
+  }
+}
+
+/**
+ * Log out from all devices except the current one
+ * @returns {Promise<Object>} Result of the operation
+ */
+export async function logoutOtherDevices() {
+  const studentToken = localStorage.getItem("studentToken");
+
+  if (!studentToken) {
+    throw new Error("Authentication required");
+  }
+
+  try {
+    const response = await fetch(`${BACKEND_URL}/auth/logout-other-devices`, {
+      method: "POST",
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${studentToken}`
+      },
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      console.log("Logged out from other devices successfully:", data);
+      return data;
+    }
+    else {
+      throw new Error(data.message || "Failed to logout from other devices");
+    }
+  } catch (error) {
+    console.error("Error logging out from other devices:", error);
+    throw error;
+  }
+}
+
+/**
+ * Log out from a specific device/session
+ * @param {string} sessionId - ID of the session to log out from
+ * @returns {Promise<Object>} Result of the operation
+ */
+export async function logoutSpecificSession(sessionId) {
+  const studentToken = localStorage.getItem("studentToken");
+
+  if (!studentToken) {
+    throw new Error("Authentication required");
+  }
+
+  try {
+    const response = await fetch(`${BACKEND_URL}/auth/sessions/${sessionId}/logout`, {
+      method: "POST",
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${studentToken}`
+      },
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      console.log("Logged out from specific session successfully:", data);
+      return data;
+    }
+    else {
+      throw new Error(data.message || "Failed to logout from specific session");
+    }
+  } catch (error) {
+    console.error("Error logging out from specific session:", error);
+    throw error;
+  }
+}
+
+/**
+ * Log out the user from the current device/session
+ * @returns {Promise<Object>} Result of the operation
+ */
+export async function logout() {
+  const studentToken = localStorage.getItem("studentToken");
+
+  if (!studentToken) {
+    throw new Error("Authentication required");
+  }
+
+  try {
+    const response = await fetch(`${BACKEND_URL}/auth/logout`, {
+      method: "POST",
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${studentToken}`
+      },
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      // Clear the token from local storage
+      localStorage.removeItem("studentToken");
+      console.log("Logged out successfully:", data);
+      return data;
+    }
+    else {
+      throw new Error(data.message || "Failed to logout");
+    }
+  } catch (error) {
+    console.error("Error logging out:", error);
     throw error;
   }
 }
