@@ -268,6 +268,8 @@ const AdminPanel = () => {
 
   const handleSearch = (e) => {
     setSearchQuery(e.target.value);
+    // Hide tooltip when user starts typing
+    setShowTooltip(false);
   };
 
 
