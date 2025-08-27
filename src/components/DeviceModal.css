@@ -1,0 +1,63 @@
+/* Device Management Modal Transitions */
+.device-modal-enter {
+  opacity: 0;
+  transform: scale(0.95) translateY(10px);
+}
+
+.device-modal-enter-active {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+  transition: opacity 300ms ease, transform 300ms ease;
+}
+
+.device-modal-exit {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+
+.device-modal-exit-active {
+  opacity: 0;
+  transform: scale(0.95) translateY(10px);
+  transition: opacity 300ms ease, transform 300ms ease;
+}
+
+/* Session Item Transitions */
+.session-item-enter {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.session-item-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 300ms ease, transform 300ms ease;
+}
+
+.session-item-exit {
+  opacity: 1;
+}
+
+.session-item-exit-active {
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: opacity 300ms ease, transform 300ms ease;
+}
+
+/* Modal Backdrop */
+.modal-backdrop-enter {
+  opacity: 0;
+}
+
+.modal-backdrop-enter-active {
+  opacity: 0.5;
+  transition: opacity 300ms ease;
+}
+
+.modal-backdrop-exit {
+  opacity: 0.5;
+}
+
+.modal-backdrop-exit-active {
+  opacity: 0;
+  transition: opacity 300ms ease;
+}
