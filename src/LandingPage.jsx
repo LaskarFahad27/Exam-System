@@ -55,23 +55,33 @@ const LandingPage = () => {
             Select Your Preferred University
           </h2>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-10">
             {universities.map((university) => (
               <div 
                 key={university.id}
-                className="bg-white rounded-xl shadow-lg overflow-hidden transition-transform duration-300 hover:shadow-xl hover:-translate-y-2 cursor-pointer"
+                className="group bg-white rounded-xl shadow-lg overflow-hidden transition-all duration-500 hover:shadow-2xl hover:-translate-y-2 hover:scale-105 cursor-pointer border border-gray-100"
                 onClick={() => navigateAndScrollToTop(navigate, university.path)}
               >
-                <div className="h-36 md:h-48 bg-gray-50 flex items-center justify-center p-4 md:p-6 overflow-hidden">
+                <div className="h-40 md:h-56 overflow-hidden relative">
+                  {/* Overlay effect on hover */}
+                  <div className="absolute inset-0 bg-blue-500 opacity-0 group-hover:opacity-20 transition-opacity duration-500 z-10"></div>
+                  
+                  {/* University Logo with zoom and fill effect */}
                   <img 
                     src={university.image} 
                     alt={university.name} 
-                    className="w-full h-full object-contain transition-all duration-500 hover:scale-110"
+                    className="w-full h-full object-cover object-center transform transition-transform duration-700 group-hover:scale-110"
                   />
                 </div>
-                <div className="p-4 md:p-6">
-                  <h3 className="text-lg md:text-xl font-semibold text-gray-900 mb-2">{university.name}</h3>
-                  <p className="text-sm md:text-base text-blue-600 font-medium">Prepare for {university.id.toUpperCase()} Admission</p>
+                
+                <div className="p-5 md:p-6 bg-gradient-to-r from-white to-blue-50 border-t border-gray-100">
+                  <h3 className="text-lg md:text-xl font-semibold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors duration-300">{university.name}</h3>
+                  <p className="text-sm md:text-base text-blue-600 font-medium flex items-center">
+                    Prepare for {university.id.toUpperCase()} Admission
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-2 transform group-hover:translate-x-2 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                    </svg>
+                  </p>
                 </div>
               </div>
             ))}

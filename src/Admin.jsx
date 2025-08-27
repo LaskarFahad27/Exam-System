@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from "react-router-dom";
 import { Users, BookOpen, Plus, Edit3, Trash2, Eye, EyeOff, GraduationCap, FileText, Calculator, Book, PenTool, X } from 'lucide-react';
+import './components/Tooltip.css';
 import toastService from './utils/toast.jsx';
 import { BACKEND_URL } from './utils/api';
 import { getExams, createExam, createSection, createQuestions, dropExam, forceDropExam, fetchExamsById, deleteQuestion, deleteSection } from './utils/api';
@@ -14,8 +15,11 @@ const AdminPanel = () => {
   const [activeTab, setActiveTab] = useState('students');
   const navigate = useNavigate();
   const [students, setStudents] = useState([]);
+  const [filteredStudents, setFilteredStudents] = useState([]);
   const [isLoadingStudents, setIsLoadingStudents] = useState(false);
   const [exams, setExams] = useState([]);
+  const [filteredExams, setFilteredExams] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [showStudentForm, setShowStudentForm] = useState(false);
   const [showExamForm, setShowExamForm] = useState(false);
   const [studentForm, setStudentForm] = useState({ name: '', id: '', email: '' });
@@ -59,6 +63,21 @@ const AdminPanel = () => {
   const [loadingCreateSection, setLoadingCreateSection] = useState(false);
   const [loadingAddQuestion, setLoadingAddQuestion] = useState(false);
   const [loadingRemoveQuestion, setLoadingRemoveQuestion] = useState({});
+  
+  // Tooltip state
+  const [showTooltip, setShowTooltip] = useState(false);
+  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
+  const searchRef = useRef(null);
+
+  // Handle mouse movement to update tooltip position
+  const handleMouseMove = (e) => {
+    if (showTooltip) {
+      setTooltipPosition({ 
+        x: e.clientX, 
+        y: e.clientY + 20 // Position below cursor
+      });
+    }
+  };
 
   const handleEditExam = async (examId) => {
     try {
@@ -163,7 +182,10 @@ const AdminPanel = () => {
     const fetchExams = async () => {
       try {
         const examData = await getExams();
-        setExams(examData.data);
+        // Reverse the array to show the newest exams first
+        const reversedExams = [...examData.data].reverse();
+        setExams(reversedExams);
+        setFilteredExams(reversedExams);
         console.log("ttt",examData.data);
       } catch (err) {
         setError("Failed to load exams");
@@ -198,6 +220,7 @@ const AdminPanel = () => {
           
           if (response.ok && data.success) {
             setStudents(data.data);
+            setFilteredStudents(data.data);
             console.log("Students fetched successfully:", data.data);
           } else {
             toastService.error(data.message || "Failed to fetch students");
@@ -213,6 +236,39 @@ const AdminPanel = () => {
 
     fetchStudents();
   }, [activeTab]);
+  
+  // Effect for search functionality
+  useEffect(() => {
+    if (searchQuery.trim() === '') {
+      // If search is empty, show all items
+      setFilteredStudents(students);
+      setFilteredExams(exams);
+      return;
+    }
+
+    const query = searchQuery.toLowerCase();
+    
+    // Filter based on active tab
+    if (activeTab === 'students') {
+      const filtered = students.filter(student => 
+        student.name?.toLowerCase().includes(query) || 
+        student.email?.toLowerCase().includes(query) || 
+        student.id?.toString().includes(query)
+      );
+      setFilteredStudents(filtered);
+    } else if (activeTab === 'exams') {
+      const filtered = exams.filter(exam => 
+        exam.title?.toLowerCase().includes(query) || 
+        exam.description?.toLowerCase().includes(query)
+      );
+      // Maintain the existing order (already reversed in fetchExams)
+      setFilteredExams(filtered);
+    }
+  }, [searchQuery, students, exams, activeTab]);
+
+  const handleSearch = (e) => {
+    setSearchQuery(e.target.value);
+  };
 
 
   const [loadingAddExam, setLoadingAddExam] = useState(false);
@@ -534,6 +590,46 @@ const AdminPanel = () => {
                 <p className="text-gray-600 text-sm">Campus Pro Examination System</p>
               </div>
             </div>
+            
+            {/* Search Bar */}
+            <div 
+              className="relative w-64"
+              onMouseEnter={() => setShowTooltip(true)}
+              onMouseLeave={() => setShowTooltip(false)}
+              onMouseMove={handleMouseMove}
+              ref={searchRef}
+            >
+              <input
+                type="text"
+                placeholder={activeTab === 'students' ? "Search students..." : "Search exams..."}
+                value={searchQuery}
+                onChange={handleSearch}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg className="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
+                </svg>
+              </div>
+              
+              {/* Custom Tooltip */}
+              {showTooltip && (
+                <div 
+                  className="custom-tooltip"
+                  style={{ 
+                    left: `${tooltipPosition.x}px`, 
+                    top: `${tooltipPosition.y}px`,
+                    transform: 'translateX(-50%)'
+                  }}
+                >
+                  {activeTab === 'students' 
+                    ? "Search with student's name or ID" 
+                    : "Search with exam title or description"
+                  }
+                </div>
+              )}
+            </div>
+            
             {/* <button
               onClick={() => setIsAuthenticated(false)}
               className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
@@ -594,8 +690,8 @@ const AdminPanel = () => {
                   </div>
                   <p className="mt-2 text-gray-600">Loading students...</p>
                 </div>
-              ) : students.length > 0 ? (
-                students.map((student) => (
+              ) : filteredStudents.length > 0 ? (
+                filteredStudents.map((student) => (
                   <div key={student.uuid} className="bg-white rounded-lg p-6 shadow-md hover:shadow-lg transition-shadow border border-gray-200">
                     <div className="flex justify-between items-start mb-4">
                       <div className="bg-blue-100 w-12 h-12 rounded-full flex items-center justify-center">
@@ -634,7 +730,9 @@ const AdminPanel = () => {
                 ))
               ) : (
                 <div className="col-span-3 text-center py-8">
-                  <p className="text-gray-500">No students found</p>
+                  <p className="text-gray-500">
+                    {searchQuery ? "No students match your search criteria." : "No students found"}
+                  </p>
                 </div>
               )}
             </div>
@@ -659,29 +757,36 @@ const AdminPanel = () => {
             </div>
 
             {/* Exams Grid */}
-
 <div className="grid gap-6 md:grid-cols-4">
-  {exams.map((exam) => (
-    <div 
-      key={exam.id} 
-      onClick={() => handleEditExam(exam.id)}
-      className="relative bg-white p-6 rounded-lg shadow-md cursor-pointer hover:shadow-lg transition"
-    >
-      <button
-        onClick={(e) => {
-          e.stopPropagation(); // prevent parent onClick
-          handleDeleteExam(exam);
-        }}
-        className="absolute top-2 right-2 text-red-500 hover:text-red-700 transition"
+  {filteredExams.length > 0 ? (
+    filteredExams.map((exam) => (
+      <div 
+        key={exam.id} 
+        onClick={() => handleEditExam(exam.id)}
+        className="relative bg-white p-6 rounded-lg shadow-md cursor-pointer hover:shadow-lg transition"
       >
-        <Trash2 className="w-5 h-5" />
-      </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation(); // prevent parent onClick
+            handleDeleteExam(exam);
+          }}
+          className="absolute top-2 right-2 text-red-500 hover:text-red-700 transition"
+        >
+          <Trash2 className="w-5 h-5" />
+        </button>
 
-      <h3 className="text-lg font-bold">{exam.title}</h3>
-      <p>{exam.description}</p>
-      
+        <h3 className="text-lg font-bold">{exam.title}</h3>
+        <p>{exam.description}</p>
+        
+      </div>
+    ))
+  ) : (
+    <div className="col-span-4 text-center py-8">
+      <p className="text-gray-500">
+        {searchQuery ? "No exams match your search criteria." : "No exams found"}
+      </p>
     </div>
-  ))}
+  )}
 </div>
 
           </div>
