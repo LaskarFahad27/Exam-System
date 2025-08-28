@@ -86,17 +86,44 @@ const convertRadicalToExponential = (text) => {
 const renderMathContent = (text) => {
   if (!text || typeof text !== 'string') return text;
   
-  // Check for math symbols that need rendering
-  const mathSymbols = /[√∛∜⁵²³⁴⁵₂₃π]|x²|x³|\^|\\_|log₂|\[math\]|\[\/math\]/;
+  // First check: Does the string contain [math] tags?
+  if (text.includes('[math]') && text.includes('[/math]')) {
+    try {
+      // Check for duplicated content pattern: "if x^2+5=10, then x=? [math]x^2+5=10,x=?[/math]"
+      const mathRegex = /\[math\](.*?)\[\/math\]/;
+      const matches = text.match(mathRegex);
+      
+      // If we found math content in tags
+      if (matches && matches[1]) {
+        const mathContent = matches[1];
+        const textBeforeMath = text.split('[math]')[0].trim();
+        
+        // If the text before [math] tag is very similar to the math content,
+        // it's likely duplicated so only show the math part
+        if (textBeforeMath && 
+            (textBeforeMath.replace(/\s+/g, '') === mathContent.replace(/\s+/g, '') ||
+             textBeforeMath.includes(mathContent) || 
+             mathContent.includes(textBeforeMath))) {
+          console.log('Detected duplicate text and math content, showing only math');
+          return <InlineMath math={mathContent} />;
+        }
+        
+        // Otherwise, it's unique content, so return just the math portion
+        return <InlineMath math={mathContent} />;
+      }
+    } catch (error) {
+      console.error('Math tag extraction error:', error);
+    }
+  }
+  
+  // If no math tags but has math symbols that need rendering
+  const mathSymbols = /[√∛∜⁵²³⁴⁵₂₃π]|x²|x³|\^|\\_|log₂/;
   
   if (!mathSymbols.test(text)) return text;
   
   try {
-    // Remove any [math] and [/math] tags
-    let cleanText = text.replace(/\[math\]/g, '').replace(/\[\/math\]/g, '');
-    
-    // For math content, render it with KaTeX
-    return <InlineMath math={cleanText} />;
+    // For regular math content without tags, render it with KaTeX
+    return <InlineMath math={text} />;
   } catch (error) {
     console.error('Math content processing error:', error);
     return text; // Return original text if processing fails
