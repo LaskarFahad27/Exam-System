@@ -4,7 +4,7 @@ import { Users, BookOpen, Plus, Edit3, Trash2, Eye, EyeOff, GraduationCap, FileT
 import './components/Tooltip.css';
 import toastService from './utils/toast.jsx';
 import { BACKEND_URL } from './utils/api';
-import { getExams, createExam, createSection, createQuestions, dropExam, forceDropExam, fetchExamsById, deleteQuestion, deleteSection } from './utils/api';
+import { getExams, createExam, createSection, createQuestions, dropExam, forceDropExam, fetchExamsById, deleteQuestion, deleteSection, toggleExamPublishStatus, updateExamBasicDetails } from './utils/api';
 import MCQMaker from './MCQMaker';
 import MathMCQMaker from './MathMCQMaker';
 import QuestionsList from './QuestionsList';
@@ -64,6 +64,93 @@ const AdminPanel = () => {
   const [loadingAddQuestion, setLoadingAddQuestion] = useState(false);
   const [loadingRemoveQuestion, setLoadingRemoveQuestion] = useState({});
   
+  const [loadingPublishStatus, setLoadingPublishStatus] = useState({});
+  const [loadingEditStatus, setLoadingEditStatus] = useState({});
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editingExam, setEditingExam] = useState(null);
+  const [editFormData, setEditFormData] = useState({ title: '', description: '' });
+
+  // Handle toggle publish status
+  const handleTogglePublishStatus = async (e, examId, currentStatus) => {
+    e.stopPropagation(); // Prevent parent click event (edit exam)
+    
+    setLoadingPublishStatus(prev => ({ ...prev, [examId]: true }));
+    
+    try {
+      await toggleExamPublishStatus(examId, !currentStatus);
+      
+      // Update the exams list with the new publish status
+      setExams(exams.map(exam => 
+        exam.id === examId 
+          ? { ...exam, published: !currentStatus ? 1 : 0 } 
+          : exam
+      ));
+      
+      // Also update filtered exams
+      setFilteredExams(filteredExams.map(exam => 
+        exam.id === examId 
+          ? { ...exam, published: !currentStatus ? 1 : 0 } 
+          : exam
+      ));
+      
+      toastService.success(`Exam ${!currentStatus ? 'published' : 'unpublished'} successfully`);
+    } catch (error) {
+      console.error("Error toggling publish status:", error);
+      toastService.error("Failed to update exam publish status");
+    } finally {
+      setLoadingPublishStatus(prev => ({ ...prev, [examId]: false }));
+    }
+  };
+  
+  // Handle opening edit modal
+  const handleOpenEditModal = (e, exam) => {
+    e.stopPropagation(); // Prevent parent click event (edit exam)
+    setEditingExam(exam);
+    setEditFormData({ 
+      title: exam.title, 
+      description: exam.description 
+    });
+    setEditModalOpen(true);
+  };
+  
+  // Handle updating exam details
+  const handleUpdateExamDetails = async (e) => {
+    e.preventDefault();
+    if (!editingExam) return;
+    
+    setLoadingEditStatus(prev => ({ ...prev, [editingExam.id]: true }));
+    
+    try {
+      await updateExamBasicDetails(
+        editingExam.id,
+        editFormData.title,
+        editFormData.description
+      );
+      
+      // Update the exams list with the new details
+      setExams(exams.map(exam => 
+        exam.id === editingExam.id 
+          ? { ...exam, title: editFormData.title, description: editFormData.description } 
+          : exam
+      ));
+      
+      // Also update filtered exams
+      setFilteredExams(filteredExams.map(exam => 
+        exam.id === editingExam.id 
+          ? { ...exam, title: editFormData.title, description: editFormData.description } 
+          : exam
+      ));
+      
+      toastService.success('Exam details updated successfully');
+      setEditModalOpen(false);
+    } catch (error) {
+      console.error('Error updating exam details:', error);
+      toastService.error('Failed to update exam details');
+    } finally {
+      setLoadingEditStatus(prev => ({ ...prev, [editingExam.id]: false }));
+    }
+  };
+
   // Tooltip state
   const [showTooltip, setShowTooltip] = useState(false);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
@@ -767,19 +854,52 @@ const AdminPanel = () => {
         onClick={() => handleEditExam(exam.id)}
         className="relative bg-white p-6 rounded-lg shadow-md cursor-pointer hover:shadow-lg transition"
       >
-        <button
-          onClick={(e) => {
-            e.stopPropagation(); // prevent parent onClick
-            handleDeleteExam(exam);
-          }}
-          className="absolute top-2 right-2 text-red-500 hover:text-red-700 transition"
-        >
-          <Trash2 className="w-5 h-5" />
-        </button>
+        <div className="absolute top-2 right-2 flex space-x-2 ">
+          <button
+            onClick={(e) => handleTogglePublishStatus(e, exam.id, exam.published === 1)}
+            className={`p-1 rounded-full ${exam.published === 1 ? 'text-green-500 hover:text-green-700' : 'text-gray-500 hover:text-gray-700'} transition`}
+            disabled={loadingPublishStatus[exam.id]}
+            title={exam.published === 1 ? "Unpublish" : "Publish"}
+          >
+            {loadingPublishStatus[exam.id] ? (
+              <div className="w-5 h-5 border-2 border-t-2 border-blue-500 rounded-full animate-spin"></div>
+            ) : exam.published === 1 ? (
+              <Eye className="w-5 h-5" />
+            ) : (
+              <EyeOff className="w-5 h-5" />
+            )}
+          </button>
+          
+          <button
+            onClick={(e) => handleOpenEditModal(e, exam)}
+            className="p-1 rounded-full text-blue-500 hover:text-blue-700 transition"
+            title="Edit Details"
+          >
+            <Edit3 className="w-4 h-4" />
+          </button>
+          
+          <button
+            onClick={(e) => {
+              e.stopPropagation(); // prevent parent onClick
+              handleDeleteExam(exam);
+            }}
+            className="p-1 rounded-full text-red-500 hover:text-red-700 transition"
+            title="Delete Exam"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
 
-        <h3 className="text-lg font-bold">{exam.title}</h3>
-        <p>{exam.description}</p>
-        
+        <h3 className="text-lg font-bold mt-3">{exam.title}</h3>
+        <p className="text-gray-600 text-sm">{exam.description}</p>
+        <div className="mt-3 flex items-center">
+          <span 
+            className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${exam.published === 1 ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}
+            title={exam.published === 1 ? 'This exam is visible to students' : 'This exam is hidden from students'}
+          >
+            {exam.published === 1 ? 'Published' : 'Draft'}
+          </span>
+        </div>
       </div>
     ))
   ) : (
@@ -1365,6 +1485,74 @@ const AdminPanel = () => {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Edit Modal */}
+      {editModalOpen && editingExam && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold">Edit Exam Details</h3>
+              <button 
+                onClick={() => setEditModalOpen(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleUpdateExamDetails}>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Exam Title
+                </label>
+                <input
+                  type="text"
+                  value={editFormData.title}
+                  onChange={(e) => setEditFormData({...editFormData, title: e.target.value})}
+                  className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Description
+                </label>
+                <textarea
+                  value={editFormData.description}
+                  onChange={(e) => setEditFormData({...editFormData, description: e.target.value})}
+                  className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px]"
+                  required
+                />
+              </div>
+              
+              <div className="flex justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setEditModalOpen(false)}
+                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition flex items-center space-x-2"
+                  disabled={loadingEditStatus[editingExam.id]}
+                >
+                  {loadingEditStatus[editingExam.id] ? (
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <>
+                      <Edit3 className="w-4 h-4" />
+                      <span>Update</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

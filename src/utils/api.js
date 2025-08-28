@@ -170,6 +170,70 @@ export async function createQuestions(sectionId, question, type, options, answer
 }
 
 
+export async function updateExamBasicDetails(examId, title, description) {
+  const adminToken = localStorage.getItem("adminToken");
+
+  if (!adminToken) {
+    throw new Error("Authentication required");
+  }
+
+  try {
+    const response = await fetch(`${BACKEND_URL}/exams/${examId}/basic-details`, {
+      method: "PATCH",
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${adminToken}`
+      },
+      body: JSON.stringify({ title, description })
+    });
+    
+    const data = await response.json();
+    
+    if (response.ok) {
+      console.log("Exam details updated successfully:", data);
+      return { success: true, data };
+    }
+    else {
+      throw new Error(data.message || "Failed to update exam details");
+    }
+  } catch (error) {
+    console.error("Error updating exam details:", error);
+    throw error;
+  }
+}
+
+export async function toggleExamPublishStatus(examId, publishStatus) {
+  const adminToken = localStorage.getItem("adminToken");
+
+  if (!adminToken) {
+    throw new Error("Authentication required");
+  }
+
+  try {
+    const response = await fetch(`${BACKEND_URL}/exams/${examId}/published`, {
+      method: "PATCH",
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${adminToken}`
+      },
+      body: JSON.stringify({ published: publishStatus ? 1 : 0 })
+    });
+    
+    const data = await response.json();
+    
+    if (response.ok) {
+      console.log("Exam publish status updated successfully:", data);
+      return { success: true, data };
+    }
+    else {
+      throw new Error(data.message || "Failed to update exam publish status");
+    }
+  } catch (error) {
+    console.error("Error updating exam publish status:", error);
+    throw error;
+  }
+}
+
 export async function dropExam(examId) {
   
     const adminToken = localStorage.getItem("adminToken");
