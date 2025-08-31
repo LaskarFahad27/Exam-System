@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from "react-router-dom";
-import { Users, BookOpen, Plus, Edit3, Trash2, Eye, EyeOff, GraduationCap, FileText, Calculator, Book, PenTool, X } from 'lucide-react';
+import { Users, BookOpen, Plus, Edit3, Trash2, Eye, EyeOff, GraduationCap, FileText, Calculator, Book, PenTool, X, ScrollText, CircuitBoard, FlaskConical, Stethoscope } from 'lucide-react';
 import './components/Tooltip.css';
 import toastService from './utils/toast.jsx';
 import { BACKEND_URL } from './utils/api';
@@ -12,6 +12,83 @@ import MathQuestionsList from './MathQuestionsList';
 
 const AdminPanel = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  // State for Create Question Modal
+  const [showQuestionModal, setShowQuestionModal] = useState(false);
+  // For new question set modal
+  const [questionSetSubject, setQuestionSetSubject] = useState('');
+  const [questionSetName, setQuestionSetName] = useState('');
+  const [questionSetCreated, setQuestionSetCreated] = useState(false);
+  // Only one subject per question set
+  const [activeQuestionSubject, setActiveQuestionSubject] = useState('');
+  // Per-subject question bank for modal (for preview)
+  const [questionModalBank, setQuestionModalBank] = useState({
+    english: [],
+    math: [],
+    reading: [],
+    physics: [],
+    chemistry: [],
+    biology: [],
+  });
+  // For non-math subjects
+  const [questionInput, setQuestionInput] = useState('');
+  const [questionOptions, setQuestionOptions] = useState(['', '', '', '']);
+  const [correctOption, setCorrectOption] = useState(null);
+  // For math section
+  const [mathQuestionForm, setMathQuestionForm] = useState(null); // will be set by MathMCQMaker
+
+  const subjectTabs = [
+    { key: 'english', label: 'English', color: 'blue' },
+    { key: 'math', label: 'Mathematics', color: 'green' },
+    { key: 'reading', label: 'Reading', color: 'purple' },
+    { key: 'physics', label: 'Physics', color: 'red' },
+    { key: 'chemistry', label: 'Chemistry', color: 'yellow' },
+    { key: 'biology', label: 'Biology', color: 'teal' },
+  ];
+
+  const resetQuestionModal = () => {
+    setActiveQuestionSubject('english');
+    setQuestionInput('');
+    setQuestionOptions(['', '', '', '']);
+    setCorrectOption(null);
+    setMathQuestionForm(null);
+    setQuestionModalBank({
+      english: [],
+      math: [],
+      reading: [],
+      physics: [],
+      chemistry: [],
+      biology: [],
+    });
+  };
+
+  // Add question for current subject
+  const handleAddQuestion = (q) => {
+    let newQ;
+    if (activeQuestionSubject === 'math') {
+      newQ = q; // MathMCQMaker provides the full question object
+    } else {
+      newQ = {
+        id: Date.now(),
+        question: questionInput,
+        options: [...questionOptions],
+        correctAnswer: correctOption,
+        hasMath: false,
+      };
+    }
+    setQuestionModalBank((prev) => ({
+      ...prev,
+      [activeQuestionSubject]: [newQ, ...prev[activeQuestionSubject]],
+    }));
+    // Reset only the input for the current subject
+    if (activeQuestionSubject === 'math') {
+      setMathQuestionForm(null);
+    } else {
+      setQuestionInput('');
+      setQuestionOptions(['', '', '', '']);
+      setCorrectOption(null);
+    }
+    toastService.success('Question added!');
+  };
   const [activeTab, setActiveTab] = useState('students');
   const navigate = useNavigate();
   const [students, setStudents] = useState([]);
@@ -67,7 +144,7 @@ const AdminPanel = () => {
   const [loadingPublishStatus, setLoadingPublishStatus] = useState({});
   const [loadingEditStatus, setLoadingEditStatus] = useState({});
   const [editModalOpen, setEditModalOpen] = useState(false);
-  const [editingExam, setEditingExam] = useState(null);
+  const [editingExamId, setEditingExamId] = useState();
   const [editFormData, setEditFormData] = useState({ title: '', description: '' });
 
   // Handle toggle publish status
@@ -105,7 +182,8 @@ const AdminPanel = () => {
   // Handle opening edit modal
   const handleOpenEditModal = (e, exam) => {
     e.stopPropagation(); // Prevent parent click event (edit exam)
-    setEditingExam(exam);
+    setEditingExamId(exam.id);
+    console.log("Editing exam:", exam.id);
     setEditFormData({ 
       title: exam.title, 
       description: exam.description 
@@ -116,27 +194,31 @@ const AdminPanel = () => {
   // Handle updating exam details
   const handleUpdateExamDetails = async (e) => {
     e.preventDefault();
-    if (!editingExam) return;
+    if (!editingExamId) return;
     
-    setLoadingEditStatus(prev => ({ ...prev, [editingExam.id]: true }));
+    setLoadingEditStatus(prev => ({ ...prev, [editingExamId]: true }));
     
     try {
       await updateExamBasicDetails(
-        editingExam.id,
+        editingExamId,
         editFormData.title,
         editFormData.description
       );
+
+      console.log(editingExamId,
+        editFormData.title,
+        editFormData.description)
       
       // Update the exams list with the new details
       setExams(exams.map(exam => 
-        exam.id === editingExam.id 
+        exam.id === editingExamId 
           ? { ...exam, title: editFormData.title, description: editFormData.description } 
           : exam
       ));
       
       // Also update filtered exams
       setFilteredExams(filteredExams.map(exam => 
-        exam.id === editingExam.id 
+        exam.id === editingExamId 
           ? { ...exam, title: editFormData.title, description: editFormData.description } 
           : exam
       ));
@@ -147,7 +229,7 @@ const AdminPanel = () => {
       console.error('Error updating exam details:', error);
       toastService.error('Failed to update exam details');
     } finally {
-      setLoadingEditStatus(prev => ({ ...prev, [editingExam.id]: false }));
+      setLoadingEditStatus(prev => ({ ...prev, [editingExamId]: false }));
     }
   };
 
@@ -754,6 +836,17 @@ const AdminPanel = () => {
             <BookOpen className="w-5 h-5" />
             <span>Exams</span>
           </button>
+          <button
+            onClick={() => setActiveTab('questions')}
+            className={`flex items-center space-x-2 px-6 py-3 rounded-lg font-semibold transition-colors ${
+              activeTab === 'questions' 
+                ? 'bg-blue-600 text-white shadow-md' 
+                : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
+            }`}
+          >
+            <ScrollText className="w-5 h-5" />
+            <span>Questions</span>
+          </button>
         </div>
 
         {/* Students Tab */}
@@ -833,16 +926,177 @@ const AdminPanel = () => {
           <div className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-bold text-gray-800">Exam Management</h2>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    resetExamForm();
+                    setShowExamForm(true);
+                  }}
+                  className="flex items-center space-x-2 bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-orange-700 transition-colors shadow-md"
+                >
+                  <Plus className="w-5 h-5" />
+                  <span>Create Exam</span>
+                </button>
+                <button
+                  onClick={() => setShowQuestionModal(true)}
+                  className="flex items-center space-x-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-md"
+                >
+                  <Plus className="w-5 h-5" />
+                  <span>Create Question</span>
+                </button>
+              </div>
+
+      {/* Create Question Modal */}
+      {showQuestionModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style={{padding: '1vw'}}>
+          <div className="bg-white rounded-lg shadow-xl w-full h-full max-w-[98vw] max-h-[96vh] flex flex-col overflow-hidden" style={{margin: 'auto'}}>
+            <div className="p-8 flex-1 min-h-0 overflow-y-auto scrollbar-hide" style={{scrollbarWidth: 'none', msOverflowStyle: 'none'}}>
+              <style>{`
+                .scrollbar-hide::-webkit-scrollbar { display: none; }
+                .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+              `}</style>
+            <div className="flex justify-between items-center mb-6 sticky top-0 bg-white z-10 pb-2">
+              <h3 className="text-xl font-bold text-gray-800">Create Question Set</h3>
               <button
                 onClick={() => {
-                  resetExamForm();
-                  setShowExamForm(true);
+                  setShowQuestionModal(false);
+                  setQuestionSetSubject('');
+                  setQuestionSetName('');
+                  setQuestionSetCreated(false);
+                  setActiveQuestionSubject('');
+                  resetQuestionModal();
                 }}
-                className="flex items-center space-x-2 bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-orange-700 transition-colors shadow-md"
+                className="text-gray-500 hover:text-gray-700 transition-colors"
               >
-                <Plus className="w-5 h-5" />
-                <span>Create Exam</span>
+                <X className="w-6 h-6" />
               </button>
+            </div>
+            {!questionSetCreated ? (
+              <div className="space-y-6">
+                <div className="mb-4">
+                  <label className="block text-gray-700 text-sm font-medium mb-2">Select the subject for which you want to create the question set</label>
+                  <select
+                    value={questionSetSubject}
+                    onChange={e => setQuestionSetSubject(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">-- Select Subject --</option>
+                    {subjectTabs.map(subject => (
+                      <option key={subject.key} value={subject.key}>{subject.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="mb-4">
+                  <label className="block text-gray-700 text-sm font-medium mb-2">Enter the question set name</label>
+                  <input
+                    type="text"
+                    value={questionSetName}
+                    onChange={e => setQuestionSetName(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Question set name"
+                  />
+                </div>
+                <button
+                  className="bg-blue-600 text-white p-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  disabled={!questionSetSubject || !questionSetName}
+                  onClick={() => {
+                    setActiveQuestionSubject(questionSetSubject);
+                    setQuestionSetCreated(true);
+                  }}
+                >
+                  Create Question Set
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Left: Question Input */}
+                <div>
+                  {/* Math Section: Use MathMCQMaker */}
+                  {activeQuestionSubject === 'math' ? (
+                    <div>
+                      <MathMCQMaker
+                        activeSection={activeQuestionSubject}
+                        addQuestion={(_section, q) => handleAddQuestion(q)}
+                      />
+                    </div>
+                  ) : (
+                    <>
+                      <div>
+                        <label className="block text-gray-700 text-sm font-medium mb-2">Question</label>
+                        <textarea
+                          value={questionInput}
+                          onChange={e => setQuestionInput(e.target.value)}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder={`Enter question for ${subjectTabs.find(s=>s.key===activeQuestionSubject)?.label || ''}`}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-gray-700 text-sm font-medium mb-2">Options</label>
+                        <div className="grid grid-cols-1 gap-2">
+                          {questionOptions.map((opt, idx) => (
+                            <div key={idx} className="flex items-center gap-2">
+                              <input
+                                type="radio"
+                                name="correctOption"
+                                checked={correctOption === idx}
+                                onChange={() => setCorrectOption(idx)}
+                              />
+                              <input
+                                type="text"
+                                value={opt}
+                                onChange={e => {
+                                  const newOpts = [...questionOptions];
+                                  newOpts[idx] = e.target.value;
+                                  setQuestionOptions(newOpts);
+                                }}
+                                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder={`Option ${idx + 1}`}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleAddQuestion()}
+                        disabled={!questionInput || questionOptions.some(opt => !opt) || correctOption === null}
+                        className="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors mt-2 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                      >
+                        Add Question
+                      </button>
+                    </>
+                  )}
+                </div>
+                {/* Right: Preview */}
+                <div>
+                  <div className="font-semibold mb-2">Preview ({subjectTabs.find(s=>s.key===activeQuestionSubject)?.label || ''})</div>
+                  {activeQuestionSubject === 'math' ? (
+                    <MathQuestionsList
+                      activeSection={activeQuestionSubject}
+                      examForm={{ math: { questions: questionModalBank.math } }}
+                      removeQuestion={(_section, id) => setQuestionModalBank(prev => ({
+                        ...prev,
+                        math: prev.math.filter(q => q.id !== id)
+                      }))}
+                      loadingRemoveQuestion={false}
+                    />
+                  ) : (
+                    <QuestionsList
+                      activeSection={activeQuestionSubject}
+                      examForm={{ [activeQuestionSubject]: { questions: questionModalBank[activeQuestionSubject] } }}
+                      removeQuestion={(idx) => setQuestionModalBank(prev => ({
+                        ...prev,
+                        [activeQuestionSubject]: prev[activeQuestionSubject].filter((_, i) => i !== idx)
+                      }))}
+                      loadingRemoveQuestion={false}
+                    />
+                  )}
+                </div>
+              </div>
+            )}
+            </div>
+          </div>
+        </div>
+      )}
             </div>
 
             {/* Exams Grid */}
@@ -1019,17 +1273,19 @@ const AdminPanel = () => {
               {/* Section Tabs */}
               {examCreated && (
                 <div className="border-b border-gray-200">
-                <div className="flex space-x-8">
+                <div className="flex space-x-8 overflow-x-auto whitespace-nowrap scrollbar-hide py-2">
                   {[
                     { key: 'english', label: 'English', icon: Book, color: 'blue' },
                     { key: 'math', label: 'Mathematics', icon: Calculator, color: 'green' },
                     { key: 'reading', label: 'Reading Comprehension', icon: FileText, color: 'purple' },
-                    // { key: 'essay', label: 'Essay Writing', icon: PenTool, color: 'orange' }
+                    { key: 'physics', label: 'Physics', icon: CircuitBoard, color: 'red' },
+                    { key: 'chemistry', label: 'Chemistry', icon: FlaskConical, color: 'orange' },
+                    { key: 'biology', label: 'Biology', icon: Stethoscope, color: 'teal' },
                   ].map((section) => (
                     <button
                       key={section.key}
                       onClick={() => setActiveSection(section.key)}
-                      className={`flex items-center space-x-2 py-3 px-4 border-b-2 font-medium text-sm transition-colors ${
+                      className={`inline-flex items-center space-x-2 py-3 px-4 border-b-2 font-medium text-sm transition-colors ${
                         activeSection === section.key
                           ? 'border-blue-500 text-blue-600 bg-blue-50'
                           : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
@@ -1039,8 +1295,8 @@ const AdminPanel = () => {
                       <span>{section.label}</span>
                       <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded-full text-xs">
                         {section.key === 'essay' 
-                          ? examForm.essay.topics.length 
-                          : examForm[section.key].questions.length}
+                          ? (examForm.essay?.topics?.length || 0)
+                          : (examForm[section.key]?.questions?.length || 0)}
                       </span>
                       {/* Delete button - only show for active section and if section is created */}
                       {activeSection === section.key && sectionCreated[section.key] && (
@@ -1208,6 +1464,7 @@ const AdminPanel = () => {
       </div>
     )}
 
+
     {/* ========== READING SECTION ========== */}
     {activeSection === 'reading' && !sectionCreated.reading && (
       <div className="p-6 bg-gray-50 rounded-lg text-center">
@@ -1268,13 +1525,219 @@ const AdminPanel = () => {
     {activeSection === 'reading' && sectionCreated.reading && (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <MCQMaker activeSection={activeSection} addQuestion={addQuestion} />
+        <QuestionsList
+          activeSection={activeSection}
+          examForm={examForm}
+          removeQuestion={removeQuestion}
+          loadingRemoveQuestion={loadingRemoveQuestion}
+        />
+      </div>
+    )}
 
-          <QuestionsList
-            activeSection={activeSection}
-            examForm={examForm}
-            removeQuestion={removeQuestion}
-            loadingRemoveQuestion={loadingRemoveQuestion}
-          />
+    {/* ========== PHYSICS SECTION ========== */}
+    {activeSection === 'physics' && !sectionCreated.physics && (
+      <div className="p-6 bg-gray-50 rounded-lg text-center">
+        <p className="text-gray-700 font-medium mb-4">
+          This section is not created yet. <br />
+          Enter allotted time & sequence order for this section to create it.
+        </p>
+        <input
+          type="number"
+          placeholder="Enter allotted time (min)"
+          value={examForm.physics.timeLimit}
+          onChange={(e) =>
+            setExamForm({
+              ...examForm,
+              physics: {
+                ...examForm.physics,
+                timeLimit: e.target.value,
+              },
+            })
+          }
+          className="px-4 py-2 border rounded-lg w-1/2 mb-3 focus:outline-none focus:ring-2 focus:ring-red-500"
+        />
+        <br />
+        <input
+          type="number"
+          placeholder="Enter sequence order"
+          value={examForm.physics.sequenceOrder}
+          onChange={(e) =>
+            setExamForm({
+              ...examForm,
+              physics: {
+                ...examForm.physics,
+                sequenceOrder: e.target.value,
+              },
+            })
+          }
+          className="px-4 py-2 border rounded-lg w-1/2 mb-3 focus:outline-none focus:ring-2 focus:ring-red-500"
+        />
+        <br />
+        <button
+          onClick={handleCreateSection}
+          disabled={!examForm.physics.timeLimit || !examForm.physics.sequenceOrder || loadingCreateSection}
+          className={`ml-3 ${
+            !examForm.physics.timeLimit || !examForm.physics.sequenceOrder
+              ? "bg-gray-400 cursor-not-allowed"
+              : "bg-red-600 hover:bg-red-700"
+          } text-white px-4 py-2 rounded-lg transition-colors flex items-center justify-center`}
+        >
+          {loadingCreateSection ? (
+            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+          ) : (
+            "Create Section"
+          )}
+        </button>
+      </div>
+    )}
+
+    {activeSection === 'physics' && sectionCreated.physics && (
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <MCQMaker activeSection={activeSection} addQuestion={addQuestion} />
+        <QuestionsList
+          activeSection={activeSection}
+          examForm={examForm}
+          removeQuestion={removeQuestion}
+          loadingRemoveQuestion={loadingRemoveQuestion}
+        />
+      </div>
+    )}
+
+    {/* ========== CHEMISTRY SECTION ========== */}
+    {activeSection === 'chemistry' && !sectionCreated.chemistry && (
+      <div className="p-6 bg-gray-50 rounded-lg text-center">
+        <p className="text-gray-700 font-medium mb-4">
+          This section is not created yet. <br />
+          Enter allotted time & sequence order for this section to create it.
+        </p>
+        <input
+          type="number"
+          placeholder="Enter allotted time (min)"
+          value={examForm.chemistry.timeLimit}
+          onChange={(e) =>
+            setExamForm({
+              ...examForm,
+              chemistry: {
+                ...examForm.chemistry,
+                timeLimit: e.target.value,
+              },
+            })
+          }
+          className="px-4 py-2 border rounded-lg w-1/2 mb-3 focus:outline-none focus:ring-2 focus:ring-orange-500"
+        />
+        <br />
+        <input
+          type="number"
+          placeholder="Enter sequence order"
+          value={examForm.chemistry.sequenceOrder}
+          onChange={(e) =>
+            setExamForm({
+              ...examForm,
+              chemistry: {
+                ...examForm.chemistry,
+                sequenceOrder: e.target.value,
+              },
+            })
+          }
+          className="px-4 py-2 border rounded-lg w-1/2 mb-3 focus:outline-none focus:ring-2 focus:ring-orange-500"
+        />
+        <br />
+        <button
+          onClick={handleCreateSection}
+          disabled={!examForm.chemistry.timeLimit || !examForm.chemistry.sequenceOrder || loadingCreateSection}
+          className={`ml-3 ${
+            !examForm.chemistry.timeLimit || !examForm.chemistry.sequenceOrder
+              ? "bg-gray-400 cursor-not-allowed"
+              : "bg-orange-600 hover:bg-orange-700"
+          } text-white px-4 py-2 rounded-lg transition-colors flex items-center justify-center`}
+        >
+          {loadingCreateSection ? (
+            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+          ) : (
+            "Create Section"
+          )}
+        </button>
+      </div>
+    )}
+
+    {activeSection === 'chemistry' && sectionCreated.chemistry && (
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <MCQMaker activeSection={activeSection} addQuestion={addQuestion} />
+        <QuestionsList
+          activeSection={activeSection}
+          examForm={examForm}
+          removeQuestion={removeQuestion}
+          loadingRemoveQuestion={loadingRemoveQuestion}
+        />
+      </div>
+    )}
+
+    {/* ========== BIOLOGY SECTION ========== */}
+    {activeSection === 'biology' && !sectionCreated.biology && (
+      <div className="p-6 bg-gray-50 rounded-lg text-center">
+        <p className="text-gray-700 font-medium mb-4">
+          This section is not created yet. <br />
+          Enter allotted time & sequence order for this section to create it.
+        </p>
+        <input
+          type="number"
+          placeholder="Enter allotted time (min)"
+          value={examForm.biology.timeLimit}
+          onChange={(e) =>
+            setExamForm({
+              ...examForm,
+              biology: {
+                ...examForm.biology,
+                timeLimit: e.target.value,
+              },
+            })
+          }
+          className="px-4 py-2 border rounded-lg w-1/2 mb-3 focus:outline-none focus:ring-2 focus:ring-teal-500"
+        />
+        <br />
+        <input
+          type="number"
+          placeholder="Enter sequence order"
+          value={examForm.biology.sequenceOrder}
+          onChange={(e) =>
+            setExamForm({
+              ...examForm,
+              biology: {
+                ...examForm.biology,
+                sequenceOrder: e.target.value,
+              },
+            })
+          }
+          className="px-4 py-2 border rounded-lg w-1/2 mb-3 focus:outline-none focus:ring-2 focus:ring-teal-500"
+        />
+        <br />
+        <button
+          onClick={handleCreateSection}
+          disabled={!examForm.biology.timeLimit || !examForm.biology.sequenceOrder || loadingCreateSection}
+          className={`ml-3 ${
+            !examForm.biology.timeLimit || !examForm.biology.sequenceOrder
+              ? "bg-gray-400 cursor-not-allowed"
+              : "bg-teal-600 hover:bg-teal-700"
+          } text-white px-4 py-2 rounded-lg transition-colors flex items-center justify-center`}
+        >
+          {loadingCreateSection ? (
+            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+          ) : (
+            "Create Section"
+          )}
+        </button>
+      </div>
+    )}
+
+    {activeSection === 'biology' && sectionCreated.biology && (
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <MCQMaker activeSection={activeSection} addQuestion={addQuestion} />
+        <QuestionsList
+          activeSection={activeSection}
+          examForm={examForm}
+          removeQuestion={removeQuestion}
+          loadingRemoveQuestion={loadingRemoveQuestion}
+        />
       </div>
     )}
 
@@ -1490,7 +1953,7 @@ const AdminPanel = () => {
       )}
       
       {/* Edit Modal */}
-      {editModalOpen && editingExam && (
+  {editModalOpen && editingExamId && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-6">
             <div className="flex justify-between items-center mb-4">
@@ -1540,9 +2003,9 @@ const AdminPanel = () => {
                 <button
                   type="submit"
                   className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition flex items-center space-x-2"
-                  disabled={loadingEditStatus[editingExam.id]}
+                  disabled={loadingEditStatus[editingExamId]}
                 >
-                  {loadingEditStatus[editingExam.id] ? (
+                  {loadingEditStatus[editingExamId] ? (
                     <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                   ) : (
                     <>

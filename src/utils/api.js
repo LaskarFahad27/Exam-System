@@ -178,7 +178,7 @@ export async function updateExamBasicDetails(examId, title, description) {
   }
 
   try {
-    const response = await fetch(`${BACKEND_URL}/exams/${examId}/basic-details`, {
+    const response = await fetch(`${BACKEND_URL}/exams/${examId}/details`, {
       method: "PATCH",
       headers: { 
         "Content-Type": "application/json",
@@ -527,3 +527,4 @@ export async function getExamResults(examId) {
     throw error;
   }
 }
+
