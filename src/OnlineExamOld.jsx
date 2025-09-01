@@ -6,6 +6,8 @@ import { Upload } from 'lucide-react';
 import 'katex/dist/katex.min.css';
 import { InlineMath } from 'react-katex';
 import toastService from './utils/toast.jsx';
+import { initializeExamSecurity } from './utils/examSecurity.js';
+import { SecurityModalContainer } from './utils/securityModal.jsx';
 
 // Function to convert radical notation to exponential notation
 const convertRadicalToExponential = (text) => {
@@ -215,107 +217,16 @@ const OnlineExam = () => {
   Essay: 'bg-pink-600'
 };
 
-  //Detect Developer Tool
-   
-  // useEffect(() => {
-  //   let detected = false;
-
-  //   const detectByDimensions = () => {
-  //     if (
-  //       window.outerHeight - window.innerHeight > 200 ||
-  //       window.outerWidth - window.innerWidth > 200
-  //     ) {
-  //       detected = true;
-  //       setOpen(true);
-  //       alert("You have violated the rules by opening the developer tools. Therefore, you are not eligible to continue the examination");
-  //       navigate("/"); 
-  //     }
-  //   };
-
-  //   const detectByConsole = () => {
-  //     const element = new Image();
-  //     Object.defineProperty(element, "id", {
-  //       get: function () {
-  //         detected = true;
-  //         setOpen(true);
-  //         alert("You have violated the rules by opening the developer tools. Therefore, you are not eligible to continue the examination");
-  //         navigate("/"); 
-  //       }
-  //     });
-  //     console.log(element);
-  //   };
-
-  //   const detectByDebugger = () => {
-  //     const start = performance.now();
-  //     debugger;
-  //     const end = performance.now();
-  //     if (end - start > 100) {
-  //       detected = true;
-  //       setOpen(true);
-  //       alert("You have violated the rules by opening the developer tools. Therefore, you are not eligible to continue the examination");
-  //       navigate("/"); 
-  //     }
-  //   };
-
-  //   const detectAll = () => {
-  //     if (!detected) {
-  //       detectByDimensions();
-  //       detectByConsole();
-  //       detectByDebugger();
-  //     }
-  //   };
-
-  //   const interval = setInterval(detectAll, 1000);
-
-  //   return () => clearInterval(interval);
-  // }, []);
-   
-  // //Detect Tab Switch
-
-  // useEffect(() => {
-  //   const handleVisibilityChange = () => {
-  //     if (document.visibilityState === "visible") {
-  //       alert("You have violated the rules by switching tab. Therefore, you are not eligible to continue the examination");
-  //       navigate("/");
-  //     }
-  //   };
-
-  //   document.addEventListener("visibilitychange", handleVisibilityChange);
-    
-  //   return () => {
-  //     document.removeEventListener("visibilitychange", handleVisibilityChange);
-  //   };
-  // }, [navigate]);
-
-  //Prevent Click Events
-
+  // Initialize all exam security features in one useEffect
   useEffect(() => {
-    // Disable right click
-    const disableRightClick = (e) => {
-      e.preventDefault();
-      toastService.error("You are not able to click 'Right' !");
-    };
-
-    // Disable keyboard shortcuts
-    const disableKeyShortcuts = (e) => {
-      if (
-        (e.ctrlKey && e.key === "c") || // Ctrl + C
-        (e.ctrlKey && e.key === "x") || // Ctrl + X
-        (e.ctrlKey && e.key === "v")    // Ctrl + V
-      ) {
-        e.preventDefault();
-        toastService.error("You are not able to Copy, Cut, and Paste!");
-      }
-    };
-
-    document.addEventListener("contextmenu", disableRightClick);
-    document.addEventListener("keydown", disableKeyShortcuts);
-
+    // Initialize security features and get cleanup function
+    const cleanupSecurity = initializeExamSecurity(navigate);
+    
+    // Return cleanup function
     return () => {
-      document.removeEventListener("contextmenu", disableRightClick);
-      document.removeEventListener("keydown", disableKeyShortcuts);
+      cleanupSecurity();
     };
-  }, []);
+  }, [navigate]);
 
   const handleDrag = (e) => {
     e.preventDefault();
@@ -371,6 +282,9 @@ const OnlineExam = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Security Modal Container */}
+      <SecurityModalContainer />
+      
       {/* Header */}
       <nav className="bg-white shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
