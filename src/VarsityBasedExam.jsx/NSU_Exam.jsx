@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from "react-router-dom";
 import { navigateAndScrollToTop } from '../utils/navigation';
+import { logout } from '../utils/api';
 import Header from '../components/Header';
 import { 
   CheckCircle, 
@@ -50,9 +51,16 @@ const NSU_Exam = () => {
     openModal();
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('studentToken');
-    setIsLoggedIn(false);
+  const handleLogout = async () => {
+    try {
+      await logout(); // Call the API logout function
+      setIsLoggedIn(false);
+    } catch (error) {
+      console.error('Logout error:', error);
+      // If there's an error with the API call, still remove the token as a fallback
+      localStorage.removeItem('studentToken');
+      setIsLoggedIn(false);
+    }
   };
 
   const adminLogin = () => {
