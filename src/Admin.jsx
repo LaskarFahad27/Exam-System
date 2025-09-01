@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from "react-router-dom";
-import { Users, BookOpen, Plus, Edit3, Trash2, Eye, EyeOff, GraduationCap, FileText, Calculator, Book, PenTool, X, ScrollText, CircuitBoard, FlaskConical, Stethoscope } from 'lucide-react';
+import { Users, BookOpen, Plus, Edit3, Trash2, Eye, EyeOff, GraduationCap, FileText, Calculator, Book, PenTool, X, ScrollText, CircuitBoard, FlaskConical, Stethoscope, UserCircle2, Calendar } from 'lucide-react';
 import './components/Tooltip.css';
 import toastService from './utils/toast.jsx';
 import { BACKEND_URL } from './utils/api';
-import { getExams, createExam, createSection, createQuestions, dropExam, forceDropExam, fetchExamsById, deleteQuestion, deleteSection, toggleExamPublishStatus, updateExamBasicDetails } from './utils/api';
+import { getExams, createExam, createSection, createQuestions, dropExam, forceDropExam, fetchExamsById, 
+        deleteQuestion, deleteSection, toggleExamPublishStatus, updateExamBasicDetails, createQuestionSet, fetchQuestionSet } from './utils/api';
+        
 import MCQMaker from './MCQMaker';
 import MathMCQMaker from './MathMCQMaker';
 import QuestionsList from './QuestionsList';
@@ -18,6 +20,11 @@ const AdminPanel = () => {
   const [questionSetSubject, setQuestionSetSubject] = useState('');
   const [questionSetName, setQuestionSetName] = useState('');
   const [questionSetCreated, setQuestionSetCreated] = useState(false);
+  const [questionSet, setQuestionSet] = useState([]);
+  const [activeQuestionSet, setActiveQuestionSet] = useState(null);
+  const [showMathMCQForm, setShowMathMCQForm] = useState(false);
+  const [showQuestionList, setShowQuestionList] = useState(false);
+
   // Only one subject per question set
   const [activeQuestionSubject, setActiveQuestionSubject] = useState('');
   // Per-subject question bank for modal (for preview)
@@ -248,6 +255,21 @@ const AdminPanel = () => {
     }
   };
 
+  const handleCreateQuestionSet = async () => {
+    try {
+      const response = await createQuestionSet(questionSetSubject, questionSetName);
+      console.log("Created question set:", response);
+      toastService.success('Question set created successfully!');
+
+      setActiveQuestionSubject(questionSetSubject);
+      setQuestionSetCreated(true);
+
+    } catch (error) {
+      console.error("Error creating question set:", error);
+      toastService.error('Failed to create question set');
+    }
+  };
+
   const handleEditExam = async (examId) => {
     try {
       const examData = await fetchExamsById(examId);
@@ -364,6 +386,28 @@ const AdminPanel = () => {
 
     fetchExams();
   }, []);
+
+    useEffect(() => {
+    const getQuestionSets = async () => {
+      try {
+        if(activeTab === 'questions') {
+          const questionData = await fetchQuestionSet();
+          if(questionData.success) {
+            // Sort the question sets to show newest first
+            const sortedQuestionSets = [...questionData.data].sort((a, b) => 
+              new Date(b.created_at) - new Date(a.created_at)
+            );
+            setQuestionSet(sortedQuestionSets);
+          }
+        }
+      } catch (err) {
+        toastService.error("Failed to load question sets");
+        console.error(err);
+      }
+    };
+
+    getQuestionSets();
+  }, [activeTab]);
 
   useEffect(() => {
     const fetchStudents = async () => {
@@ -921,6 +965,73 @@ const AdminPanel = () => {
           </div>
         )}
 
+        {/* Questions Tab */}
+        {activeTab === 'questions' && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-gray-800">Question Sets</h2>
+              <button
+                onClick={() => setShowQuestionModal(true)} 
+                className="flex items-center space-x-2 bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700 transition-colors shadow-md"
+              >
+                <Plus className="w-5 h-5" />
+                <span>Create Question Set</span>
+              </button>
+            </div>
+
+            {/* Question Sets Grid */}
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {questionSet?.length > 0 ? (
+                questionSet.map((set) => (
+                  <div
+                    key={set.uuid}
+                    className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow border border-gray-200"
+                  >
+                    <div className="space-y-4">
+                      <div>
+                        <h3 className="text-xl font-semibold text-gray-800">{set.set_name}</h3>
+                        <p className="text-gray-600">{subjectTabs.find(s => s.key === set.subject_name)?.label || set.subject_name}</p>
+                      </div>
+                      <div className="flex items-center text-gray-500 text-sm">
+                        <UserCircle2 className="w-4 h-4 mr-2" />
+                        <span>{set.creator_name}</span>
+                      </div>
+                      <div className="flex items-center text-gray-500 text-sm">
+                        <Calendar className="w-4 h-4 mr-2" />
+                        <span>{new Date(set.created_at).toLocaleDateString()}</span>
+                      </div>
+                      <div className="flex space-x-3">
+                        <button
+                          onClick={() => {
+                            setActiveQuestionSet(set.uuid);
+                            setShowMathMCQForm(true);
+                          }}
+                          className="flex-1 bg-blue-600 text-white px-4 py-2 rounded font-medium hover:bg-blue-700 transition-colors"
+                        >
+                          Add Question
+                        </button>
+                        <button
+                          onClick={() => {
+                            setActiveQuestionSet(set.uuid);
+                            setShowQuestionList(true);
+                          }}
+                          className="flex-1 bg-gray-100 text-gray-700 px-4 py-2 rounded font-medium hover:bg-gray-200 transition-colors"
+                        >
+                          View Questions
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="col-span-3 text-center py-8">
+                  <p className="text-gray-500">No question sets found</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Exams Tab */}
         {activeTab === 'exams' && (
           <div className="space-y-6">
@@ -937,22 +1048,13 @@ const AdminPanel = () => {
                   <Plus className="w-5 h-5" />
                   <span>Create Exam</span>
                 </button>
-                <button
-                  onClick={() => setShowQuestionModal(true)}
-                  className="flex items-center space-x-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-md"
-                >
-                  <Plus className="w-5 h-5" />
-                  <span>Create Question</span>
-                </button>
               </div>
-
-      {/* Create Question Modal */}
-      {showQuestionModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style={{padding: '1vw'}}>
-          <div className="bg-white rounded-lg shadow-xl w-full h-full max-w-[98vw] max-h-[96vh] flex flex-col overflow-hidden" style={{margin: 'auto'}}>
-            <div className="p-8 flex-1 min-h-0 overflow-y-auto scrollbar-hide" style={{scrollbarWidth: 'none', msOverflowStyle: 'none'}}>
-              <style>{`
-                .scrollbar-hide::-webkit-scrollbar { display: none; }
+              {showQuestionModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style={{padding: '1vw'}}>
+                  <div className="bg-white rounded-lg shadow-xl w-full h-full max-w-[98vw] max-h-[96vh] flex flex-col overflow-hidden" style={{margin: 'auto'}}>
+                    <div className="p-8 flex-1 min-h-0 overflow-y-auto scrollbar-hide" style={{scrollbarWidth: 'none', msOverflowStyle: 'none'}}>
+                      <style>{`
+                        .scrollbar-hide::-webkit-scrollbar { display: none; }
                 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
               `}</style>
             <div className="flex justify-between items-center mb-6 sticky top-0 bg-white z-10 pb-2">
@@ -999,10 +1101,7 @@ const AdminPanel = () => {
                 <button
                   className="bg-blue-600 text-white p-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
                   disabled={!questionSetSubject || !questionSetName}
-                  onClick={() => {
-                    setActiveQuestionSubject(questionSetSubject);
-                    setQuestionSetCreated(true);
-                  }}
+                  onClick={handleCreateQuestionSet}
                 >
                   Create Question Set
                 </button>
@@ -1096,7 +1195,8 @@ const AdminPanel = () => {
             </div>
           </div>
         </div>
-      )}
+              )}
+      
             </div>
 
             {/* Exams Grid */}
@@ -1952,8 +2052,157 @@ const AdminPanel = () => {
         </div>
       )}
       
+      {/* Create Question Modal */}
+      {showQuestionModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style={{padding: '1vw'}}>
+          <div className="bg-white rounded-lg shadow-xl w-full h-full max-w-[98vw] max-h-[96vh] flex flex-col overflow-hidden" style={{margin: 'auto'}}>
+            <div className="p-8 flex-1 min-h-0 overflow-y-auto scrollbar-hide" style={{scrollbarWidth: 'none', msOverflowStyle: 'none'}}>
+              <style>{`
+                .scrollbar-hide::-webkit-scrollbar { display: none; }
+                .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+              `}</style>
+              <div className="flex justify-between items-center mb-6 sticky top-0 bg-white z-10 pb-2">
+                <h3 className="text-xl font-bold text-gray-800">Create Question Set</h3>
+                <button
+                  onClick={() => {
+                    setShowQuestionModal(false);
+                    setQuestionSetSubject('');
+                    setQuestionSetName('');
+                    setQuestionSetCreated(false);
+                    setActiveQuestionSubject('');
+                    resetQuestionModal();
+                  }}
+                  className="text-gray-500 hover:text-gray-700 transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              {!questionSetCreated ? (
+                <div className="space-y-6">
+                  <div className="mb-4">
+                    <label className="block text-gray-700 text-sm font-medium mb-2">Select the subject for which you want to create the question set</label>
+                    <select
+                      value={questionSetSubject}
+                      onChange={e => setQuestionSetSubject(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">-- Select Subject --</option>
+                      {subjectTabs.map(subject => (
+                        <option key={subject.key} value={subject.key}>{subject.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-gray-700 text-sm font-medium mb-2">Enter the question set name</label>
+                    <input
+                      type="text"
+                      value={questionSetName}
+                      onChange={e => setQuestionSetName(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Question set name"
+                    />
+                  </div>
+                  <button
+                    className="bg-blue-600 text-white p-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    disabled={!questionSetSubject || !questionSetName}
+                    onClick={handleCreateQuestionSet}
+                  >
+                    Create Question Set
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {/* Left: Question Input */}
+                  <div>
+                    {/* Math Section: Use MathMCQMaker */}
+                    {activeQuestionSubject === 'math' ? (
+                      <div>
+                        <MathMCQMaker
+                          activeSection={activeQuestionSubject}
+                          addQuestion={(_section, q) => handleAddQuestion(q)}
+                        />
+                      </div>
+                    ) : (
+                      <>
+                        <div>
+                          <label className="block text-gray-700 text-sm font-medium mb-2">Question</label>
+                          <textarea
+                            value={questionInput}
+                            onChange={e => setQuestionInput(e.target.value)}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder={`Enter question for ${subjectTabs.find(s=>s.key===activeQuestionSubject)?.label || ''}`}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-gray-700 text-sm font-medium mb-2">Options</label>
+                          <div className="grid grid-cols-1 gap-2">
+                            {questionOptions.map((opt, idx) => (
+                              <div key={idx} className="flex items-center gap-2">
+                                <input
+                                  type="radio"
+                                  name="correctOption"
+                                  checked={correctOption === idx}
+                                  onChange={() => setCorrectOption(idx)}
+                                />
+                                <input
+                                  type="text"
+                                  value={opt}
+                                  onChange={e => {
+                                    const newOpts = [...questionOptions];
+                                    newOpts[idx] = e.target.value;
+                                    setQuestionOptions(newOpts);
+                                  }}
+                                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  placeholder={`Option ${idx + 1}`}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleAddQuestion()}
+                          disabled={!questionInput || questionOptions.some(opt => !opt) || correctOption === null}
+                          className="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors mt-2 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                        >
+                          Add Question
+                        </button>
+                      </>
+                    )}
+                  </div>
+                  {/* Right: Preview */}
+                  <div>
+                    <div className="font-semibold mb-2">Preview ({subjectTabs.find(s=>s.key===activeQuestionSubject)?.label || ''})</div>
+                    {activeQuestionSubject === 'math' ? (
+                      <MathQuestionsList
+                        activeSection={activeQuestionSubject}
+                        examForm={{ math: { questions: questionModalBank.math } }}
+                        removeQuestion={(_section, id) => setQuestionModalBank(prev => ({
+                          ...prev,
+                          math: prev.math.filter(q => q.id !== id)
+                        }))}
+                        loadingRemoveQuestion={false}
+                      />
+                    ) : (
+                      <QuestionsList
+                        activeSection={activeQuestionSubject}
+                        examForm={{ [activeQuestionSubject]: { questions: questionModalBank[activeQuestionSubject] } }}
+                        removeQuestion={(idx) => setQuestionModalBank(prev => ({
+                          ...prev,
+                          [activeQuestionSubject]: prev[activeQuestionSubject].filter((_, i) => i !== idx)
+                        }))}
+                        loadingRemoveQuestion={false}
+                      />
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Edit Modal */}
-  {editModalOpen && editingExamId && (
+      {editModalOpen && editingExamId && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-6">
             <div className="flex justify-between items-center mb-4">

@@ -1,5 +1,6 @@
 export const BACKEND_URL = "http://172.232.104.77:5000/api";
 
+// .................Fetch all exams..................................
 
 export async function getExams() {
   
@@ -32,6 +33,8 @@ export async function getExams() {
   }
 }
 
+//..............Fetch exams for user..................
+
 export async function getExamsForUser() {
 
     const studentToken = localStorage.getItem("studentToken");
@@ -62,6 +65,8 @@ export async function getExamsForUser() {
     throw error;
   }
 }
+
+//..............Create a new exam..........................
 
 export async function createExam(title, description) {
   
@@ -98,6 +103,8 @@ export async function createExam(title, description) {
     throw error;
   }
 }
+
+//..............Create a new section..........................
 
 export async function createSection(name, examId, time, order) {
   
@@ -137,6 +144,8 @@ export async function createSection(name, examId, time, order) {
   }
 }
 
+//..............Create questions..........................
+
 export async function createQuestions(sectionId, question, type, options, answer) {
   const adminToken = localStorage.getItem("adminToken");
   if (!adminToken) throw new Error("Authentication required");
@@ -169,6 +178,7 @@ export async function createQuestions(sectionId, question, type, options, answer
   }
 }
 
+//..............Update exam basic details..........................
 
 export async function updateExamBasicDetails(examId, title, description) {
   const adminToken = localStorage.getItem("adminToken");
@@ -202,6 +212,8 @@ export async function updateExamBasicDetails(examId, title, description) {
   }
 }
 
+//..............Toggle exam publish status..........................
+
 export async function toggleExamPublishStatus(examId, publishStatus) {
   const adminToken = localStorage.getItem("adminToken");
 
@@ -233,6 +245,8 @@ export async function toggleExamPublishStatus(examId, publishStatus) {
     throw error;
   }
 }
+
+//..............Delete an exam..........................
 
 export async function dropExam(examId) {
   
@@ -277,6 +291,8 @@ export async function dropExam(examId) {
   }
 }
 
+//..............Force delete an exam (admin only)..........................
+
 export async function forceDropExam(examId) {
   const adminToken = localStorage.getItem("adminToken");
 
@@ -309,6 +325,8 @@ export async function forceDropExam(examId) {
   }
 }
 
+//..............Delete question..........................
+
 export async function deleteQuestion(questionId) {
   const adminToken = localStorage.getItem("adminToken");
   if (!adminToken) {
@@ -337,6 +355,8 @@ export async function deleteQuestion(questionId) {
   }
 }
 
+//..............Delete section..........................
+
 export async function deleteSection(sectionId) {
   const adminToken = localStorage.getItem("adminToken");
   if (!adminToken) {
@@ -364,6 +384,8 @@ export async function deleteSection(sectionId) {
     throw error;
   }
 }
+
+//..............Fetch exams by ID..........................
 
 export async function fetchExamsById(examId) {
 
@@ -396,6 +418,8 @@ export async function fetchExamsById(examId) {
   }
 }
 
+//..............Start an exam..........................
+
 export async function startExam(examId) {
   const studentToken = localStorage.getItem("studentToken");
 
@@ -427,6 +451,8 @@ export async function startExam(examId) {
   }
 }
 
+//..............Get next section..........................
+
 export async function getNextSection(userExamId) {
   const studentToken = localStorage.getItem("studentToken");
 
@@ -457,6 +483,8 @@ export async function getNextSection(userExamId) {
     throw error;
   }
 }
+
+//..............Submit section answers..........................
 
 export async function submitSectionAnswers(userExamId, sectionId, answers) {
   const studentToken = localStorage.getItem("studentToken");
@@ -497,6 +525,8 @@ export async function submitSectionAnswers(userExamId, sectionId, answers) {
   }
 }
 
+//..............Get exam results..........................
+
 export async function getExamResults(examId) {
   const studentToken = localStorage.getItem("studentToken");
 
@@ -528,3 +558,76 @@ export async function getExamResults(examId) {
   }
 }
 
+//..............Create Question Set..............
+
+export async function createQuestionSet(subject, setName) {
+  
+    const adminToken = localStorage.getItem("adminToken");
+
+  if (!adminToken) {
+    throw new Error("Authentication required");
+  }
+
+  try {
+
+    const response = await fetch(`${BACKEND_URL}/question-sets`,
+       {
+      method: "POST",
+      headers: { "Content-Type": "application/json",
+                  "Authorization": `Bearer ${adminToken}`
+      },
+      body: JSON.stringify({
+        subject_name: subject,
+        set_name: setName
+      }),
+    });
+    
+    const data = await response.json();
+    
+    if (response.ok) {
+      console.log("Set created successfully:", data);
+      return data;
+    }
+    else {
+      throw new Error(data.message || "Failed to create set");
+    }
+  } catch (error) {
+    console.error("Error creating set:", error);
+    throw error;
+  }
+}
+
+//............Fetch Question Sets.....................
+
+export async function fetchQuestionSet(subject, setName) {
+  
+    const adminToken = localStorage.getItem("adminToken");
+
+  if (!adminToken) {
+    throw new Error("Authentication required");
+  }
+
+  try {
+
+    const response = await fetch(`${BACKEND_URL}/question-sets`,
+       {
+      method: "GET",
+      headers: { "Content-Type": "application/json",
+                  "Authorization": `Bearer ${adminToken}`
+      },
+    });
+    
+    const data = await response.json();
+    
+    if (response.ok) {
+      console.log("Set fetched successfully:", data);
+      return data;
+    }
+    else {
+      throw new Error(data.message || "Failed to fetch sets");
+    }
+  } catch (error) {
+    console.error("Error fetching sets:", error);
+    throw error;
+  }
+}
