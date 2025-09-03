@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from "react-router-dom";
-import { Users, BookOpen, Plus, Edit3, Trash2, Eye, EyeOff, GraduationCap, FileText, Calculator, Book, PenTool, X, ScrollText, CircuitBoard, FlaskConical, Stethoscope, UserCircle2, Calendar } from 'lucide-react';
+import { Users, BookOpen, Plus, Edit3, Trash2, Eye, EyeOff, GraduationCap, FileText, Calculator, Book, PenTool, X, ScrollText, CircuitBoard, FlaskConical, Stethoscope, UserCircle2, Calendar, Search } from 'lucide-react';
 import './components/Tooltip.css';
 import toastService from './utils/toast.jsx';
 import { BACKEND_URL } from './utils/api';
 import { getExams, createExam, createSection, createQuestions, dropExam, forceDropExam, fetchExamsById, 
-        deleteQuestion, deleteSection, toggleExamPublishStatus, updateExamBasicDetails, createQuestionSet, fetchQuestionSet } from './utils/api';
+        deleteQuestion, deleteSection, toggleExamPublishStatus, updateExamBasicDetails, createQuestionSet, 
+        fetchQuestionSet, addQuestionToSet, removeQuestionFromSet, fetchQuestionsForSet, searchQuestionSets,
+        editQuestionSet, deleteQuestionSet } from './utils/api';
         
 import MCQMaker from './MCQMaker';
 import MathMCQMaker from './MathMCQMaker';
@@ -22,8 +24,28 @@ const AdminPanel = () => {
   const [questionSetCreated, setQuestionSetCreated] = useState(false);
   const [questionSet, setQuestionSet] = useState([]);
   const [activeQuestionSet, setActiveQuestionSet] = useState(null);
+  const [activeQuestionSetData, setActiveQuestionSetData] = useState(null);
   const [showMathMCQForm, setShowMathMCQForm] = useState(false);
   const [showQuestionList, setShowQuestionList] = useState(false);
+  const [questionsForSet, setQuestionsForSet] = useState([]);
+  const [loadingQuestions, setLoadingQuestions] = useState(false);
+  const [loadingAddSetQuestion, setLoadingAddSetQuestion] = useState(false);
+  const [loadingRemoveSetQuestion, setLoadingRemoveSetQuestion] = useState({});
+  const [questionSetSearch, setQuestionSetSearch] = useState('');
+  const [filteredQuestionSets, setFilteredQuestionSets] = useState([]);
+  const [loadingQuestionSets, setLoadingQuestionSets] = useState(false);
+  const [showQuestionSetSearch, setShowQuestionSetSearch] = useState(false);
+  
+  // States for edit and delete question set
+  const [showEditQuestionSetModal, setShowEditQuestionSetModal] = useState(false);
+  const [editQuestionSetData, setEditQuestionSetData] = useState({ id: null, subject_name: '', set_name: '' });
+  const [loadingEditQuestionSet, setLoadingEditQuestionSet] = useState(false);
+  const [loadingDeleteQuestionSet, setLoadingDeleteQuestionSet] = useState({});
+  const [showDeleteQuestionSetConfirm, setShowDeleteQuestionSetConfirm] = useState(false);
+  const [questionSetToDelete, setQuestionSetToDelete] = useState(null);
+  
+  // Ref for debouncing the search
+  const searchTimeoutRef = useRef(null);
 
   // Only one subject per question set
   const [activeQuestionSubject, setActiveQuestionSubject] = useState('');
@@ -69,10 +91,12 @@ const AdminPanel = () => {
   };
 
   // Add question for current subject
-  const handleAddQuestion = (q) => {
+  const handleAddQuestion = async (q) => {
     let newQ;
     if (activeQuestionSubject === 'math') {
       newQ = q; // MathMCQMaker provides the full question object
+      // Store the math question form for later use
+      setMathQuestionForm(newQ);
     } else {
       newQ = {
         id: Date.now(),
@@ -82,10 +106,80 @@ const AdminPanel = () => {
         hasMath: false,
       };
     }
+    
+    // Add to local state for preview
     setQuestionModalBank((prev) => ({
       ...prev,
       [activeQuestionSubject]: [newQ, ...prev[activeQuestionSubject]],
     }));
+
+    // If we're working with an existing question set, also add to the API
+    if (activeQuestionSetData?.id) {
+      try {
+        // For math, handle differently as needed
+        const questionText = activeQuestionSubject === 'math' ? newQ.question : questionInput;
+        const options = activeQuestionSubject === 'math' ? newQ.options : questionOptions;
+        
+        // Ensure we have valid options array
+        if (!options || !Array.isArray(options) || options.length === 0) {
+          toastService.error('Options are required');
+          return;
+        }
+        
+        // Calculate the correct answer safely
+        let correctAnswer;
+        if (activeQuestionSubject === 'math') {
+          // Make sure newQ.correctAnswer is a valid index
+          if (newQ.correctAnswer !== null && newQ.correctAnswer !== undefined && 
+              newQ.correctAnswer >= 0 && newQ.correctAnswer < options.length) {
+            correctAnswer = options[newQ.correctAnswer];
+          } else {
+            toastService.error('Please select a correct answer');
+            return;
+          }
+        } else {
+          // For non-math subjects
+          if (correctOption !== null && correctOption !== undefined && 
+              correctOption >= 0 && correctOption < options.length) {
+            correctAnswer = options[correctOption];
+          } else {
+            toastService.error('Please select a correct answer');
+            return;
+          }
+        }
+        
+        // Use the numeric ID, not the object
+        const questionSetId = activeQuestionSetData.id;
+        console.log("Adding question to set ID:", questionSetId);
+        console.log("Question text:", questionText);
+        console.log("Options:", options);
+        console.log("Correct answer:", correctAnswer);
+        
+        // Validate required fields before sending to API
+        if (!questionText || questionText.trim() === '') {
+          toastService.error('Question text is required');
+          return;
+        }
+        
+        // Transform options to the correct format if needed
+        // If backend expects an array of strings and not objects
+        const formattedOptions = Array.isArray(options) ? options.map(opt => 
+          typeof opt === 'object' && opt !== null ? opt.text : opt
+        ) : options;
+        
+        await handleAddQuestionToSet(
+          questionSetId,
+          questionText,
+          'mcq',
+          formattedOptions,
+          correctAnswer
+        );
+      } catch (error) {
+        console.error("Error adding question to set:", error);
+        toastService.error(`Error: ${error.message || 'Failed to add question to set'}`);
+      }
+    }
+    
     // Reset only the input for the current subject
     if (activeQuestionSubject === 'math') {
       setMathQuestionForm(null);
@@ -94,7 +188,10 @@ const AdminPanel = () => {
       setQuestionOptions(['', '', '', '']);
       setCorrectOption(null);
     }
-    toastService.success('Question added!');
+    
+    if (!activeQuestionSetData) {
+      toastService.success('Question added!');
+    }
   };
   const [activeTab, setActiveTab] = useState('students');
   const navigate = useNavigate();
@@ -113,7 +210,10 @@ const AdminPanel = () => {
     english: { questions: [], timeLimit: '', sequenceOrder: '' },
     math: { questions: [], timeLimit: '', sequenceOrder: '' },
     reading: { questions: [], timeLimit: '', sequenceOrder: '' },
-    essay: { topics: [], timeLimit: '', sequenceOrder: '' }
+    essay: { topics: [], timeLimit: '', sequenceOrder: '' },
+    physics: { questions: [], timeLimit: '', sequenceOrder: '' },
+    chemistry: { questions: [], timeLimit: '', sequenceOrder: '' },
+    biology: { questions: [], timeLimit: '', sequenceOrder: '' }
   });
   const [activeSection, setActiveSection] = useState('english');
   const [sectionCreated, setSectionCreated] = useState({
@@ -121,6 +221,9 @@ const AdminPanel = () => {
   math: false,
   reading: false,
   essay: false,
+  physics: false,
+  chemistry: false,
+  biology: false
 });
 
   const [sectionId, setSectionId] = useState();
@@ -263,11 +366,440 @@ const AdminPanel = () => {
 
       setActiveQuestionSubject(questionSetSubject);
       setQuestionSetCreated(true);
+      
+      // Store the question set data to use when adding questions
+      if (response.success) {
+        setActiveQuestionSetData(response.data);
+      }
 
     } catch (error) {
       console.error("Error creating question set:", error);
       toastService.error('Failed to create question set');
     }
+  };
+
+  const handleAddQuestionButtonClick = () => {
+    // Make sure we have all required parameters
+    if (!activeQuestionSetData?.id) {
+      toastService.error('No active question set selected');
+      return;
+    }
+    
+    if (activeQuestionSubject === 'math') {
+      // For math, we need to check if the user has created a question in the math form
+      if (!mathQuestionForm) {
+        toastService.error('Please create a math question first');
+        return;
+      }
+      
+      // Handle math question submission
+      const questionText = mathQuestionForm.question;
+      const options = mathQuestionForm.options;
+      
+      // Make sure we have a valid correctAnswer index
+      if (mathQuestionForm.correctAnswer === null || 
+          mathQuestionForm.correctAnswer === undefined || 
+          mathQuestionForm.correctAnswer < 0 || 
+          mathQuestionForm.correctAnswer >= options.length) {
+        toastService.error('Invalid correct answer selection');
+        return;
+      }
+      
+      // Get the correct answer string
+      const correctAnswer = options[mathQuestionForm.correctAnswer];
+      
+      if (!questionText || questionText.trim() === '') {
+        toastService.error('Question text is required');
+        return;
+      }
+      
+      handleAddQuestionToSet(
+        activeQuestionSetData.id,
+        questionText,
+        'mcq',
+        options,
+        correctAnswer
+      );
+    } else {
+      // For other subjects
+      if (!questionInput || questionInput.trim() === '') {
+        toastService.error('Question text is required');
+        return;
+      }
+      
+      if (questionOptions.some(opt => !opt)) {
+        toastService.error('All options must be filled');
+        return;
+      }
+      
+      if (correctOption === null) {
+        toastService.error('Please select a correct answer');
+        return;
+      }
+      
+      // Call with proper parameters for non-math questions
+      handleAddQuestionToSet(
+        activeQuestionSetData.id,
+        questionInput,
+        'mcq',
+        questionOptions,
+        questionOptions[correctOption]
+      );
+    }
+  };
+
+  // Handle searching question sets
+  const handleSearchQuestionSets = async (searchTerm, subject) => {
+    try {
+      setLoadingQuestionSets(true);
+      const response = await searchQuestionSets(searchTerm, subject);
+      
+      if (response.success) {
+        // Filter the question sets by name containing the search term
+        const filtered = searchTerm 
+          ? response.data.filter(set => 
+              set.set_name.toLowerCase().includes(searchTerm.toLowerCase())
+            )
+          : response.data;
+        
+        setFilteredQuestionSets(filtered);
+      } else {
+        setFilteredQuestionSets([]);
+      }
+    } catch (error) {
+      console.error("Error searching question sets:", error);
+      toastService.error('Failed to search question sets');
+      setFilteredQuestionSets([]);
+    } finally {
+      setLoadingQuestionSets(false);
+    }
+  };
+
+  // Function to handle question set search input changes
+  const handleQuestionSetSearchChange = (e) => {
+    const value = e.target.value;
+    setQuestionSetSearch(value);
+    
+    // Debounce the search to avoid too many API calls
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    
+    searchTimeoutRef.current = setTimeout(() => {
+      handleSearchQuestionSets(value, activeSection);
+    }, 300);
+  };
+  
+  // Toggle showing the question set search interface
+  const toggleQuestionSetSearch = () => {
+    setShowQuestionSetSearch(prev => !prev);
+    if (!showQuestionSetSearch) {
+      // When opening, perform an initial search
+      handleSearchQuestionSets('', activeSection);
+    }
+  };
+
+  // Add questions from a question set to a section
+  const addQuestionsFromSet = async (questionSetId, section) => {
+    try {
+      // First fetch the questions in the set
+      const response = await fetchQuestionsForSet(questionSetId);
+      
+      if (response.success && response.data.questions && response.data.questions.length > 0) {
+        console.log("Questions from set:", response.data.questions);
+        
+        // Add each question to the section
+        for (const question of response.data.questions) {
+          // Find the index of the correct answer in the options array
+          console.log("Question:", question);
+          console.log("Options:", question.options);
+          console.log("Correct answer:", question.correct_answer);
+          
+          const correctIndex = question.options.findIndex(
+            option => option === question.correct_answer
+          );
+          
+          console.log("Correct index found:", correctIndex);
+          
+          const newQuestion = {
+            id: Date.now() + Math.random(), // Temporary ID
+            question: question.question_text,
+            options: question.options,
+            correctAnswer: correctIndex >= 0 ? correctIndex : 0, // Default to first option if not found
+            hasMath: section === 'math'
+          };
+          
+          await addQuestion(section, newQuestion);
+        }
+        
+        toastService.success(`Added ${response.data.questions.length} questions to ${section} section`);
+      } else {
+        toastService.info('No questions found in this set');
+      }
+    } catch (error) {
+      console.error("Error adding questions from set:", error);
+      toastService.error('Failed to add questions from set');
+    }
+  };
+
+  const handleAddQuestionToSet = async (questionSetId, questionText, questionType, options, correctAnswer) => {
+    console.log("Adding question with ID:", questionSetId);
+    console.log("Question text:", questionText);
+    console.log("Question type:", questionType);
+    console.log("Options:", options);
+    console.log("Correct answer:", correctAnswer);
+    
+    // Validate inputs before proceeding
+    if (!questionText || questionText.trim() === '') {
+      toastService.error('Question text is required');
+      return { success: false, error: 'Question text is required' };
+    }
+    
+    if (!options || !Array.isArray(options) || options.length === 0) {
+      toastService.error('Options are required');
+      return { success: false, error: 'Options are required' };
+    }
+    
+    if (correctAnswer === undefined || correctAnswer === null || correctAnswer === '') {
+      toastService.error('Correct answer is required');
+      return { success: false, error: 'Correct answer is required' };
+    }
+    
+    // Format options to ensure they're strings
+    const formattedOptions = options.map(opt => {
+      if (typeof opt === 'object' && opt !== null) {
+        return opt.text || String(opt) || '';
+      }
+      return String(opt);
+    });
+    
+    // Format correct answer to ensure it's a string
+    let formattedAnswer;
+    if (typeof correctAnswer === 'object' && correctAnswer !== null) {
+      formattedAnswer = correctAnswer.text || String(correctAnswer) || '';
+    } else {
+      formattedAnswer = String(correctAnswer);
+    }
+    
+    try {
+      setLoadingAddSetQuestion(true);
+      const response = await addQuestionToSet(
+        questionSetId, 
+        questionText, 
+        questionType, 
+        formattedOptions, 
+        formattedAnswer
+      );
+      
+      if (response && response.success) {
+        // Refresh the questions list
+        await fetchQuestionsForQuestionSet(questionSetId);
+        toastService.success('Question added successfully!');
+        return { success: true };
+      } else {
+        // Handle unexpected response format
+        toastService.error('Received invalid response from server');
+        return { success: false, error: 'Invalid server response' };
+      }
+    } catch (error) {
+      console.error("Error adding question to set:", error);
+      const errorMessage = error.message || 'Failed to add question to set';
+      toastService.error(`Error: ${errorMessage}`);
+      return { success: false, error: errorMessage };
+    } finally {
+      setLoadingAddSetQuestion(false);
+    }
+  };
+
+  const handleRemoveQuestionFromSet = async (questionId) => {
+    try {
+      // Ensure we're using a proper ID value, not an object
+      const qId = typeof questionId === 'object' && questionId !== null ? questionId.id : questionId;
+      console.log("Removing question ID:", qId);
+      
+      setLoadingRemoveSetQuestion(prev => ({ ...prev, [qId]: true }));
+      const response = await removeQuestionFromSet(qId);
+      
+      if (response.success) {
+        // Update the local state by removing the question
+        setQuestionsForSet(prev => prev.filter(q => q.id !== qId));
+        toastService.success('Question removed successfully!');
+      }
+    } catch (error) {
+      console.error("Error removing question from set:", error);
+      toastService.error('Failed to remove question from set');
+    } finally {
+      setLoadingRemoveSetQuestion(prev => ({ ...prev, [questionId]: false }));
+    }
+  };
+
+  // Handle opening edit question set modal
+  const handleOpenEditQuestionSetModal = (e, questionSet) => {
+    e.stopPropagation(); // Prevent parent click event (open question set)
+    setEditQuestionSetData({
+      id: questionSet.id,
+      subject_name: questionSet.subject_name,
+      set_name: questionSet.set_name
+    });
+    setShowEditQuestionSetModal(true);
+  };
+
+  // Handle updating question set details
+  const handleUpdateQuestionSet = async (e) => {
+    e.preventDefault();
+    if (!editQuestionSetData.id) return;
+    
+    setLoadingEditQuestionSet(true);
+    
+    try {
+      const response = await editQuestionSet(
+        editQuestionSetData.id,
+        editQuestionSetData.subject_name,
+        editQuestionSetData.set_name
+      );
+      
+      if (response.success) {
+        // Update the question sets list with the new details
+        setQuestionSet(prevSets => 
+          prevSets.map(set => 
+            set.id === editQuestionSetData.id 
+              ? { 
+                  ...set, 
+                  subject_name: editQuestionSetData.subject_name, 
+                  set_name: editQuestionSetData.set_name 
+                } 
+              : set
+          )
+        );
+        
+        // Also update filtered question sets if any
+        setFilteredQuestionSets(prevSets => 
+          prevSets.map(set => 
+            set.id === editQuestionSetData.id 
+              ? { 
+                  ...set, 
+                  subject_name: editQuestionSetData.subject_name, 
+                  set_name: editQuestionSetData.set_name 
+                } 
+              : set
+          )
+        );
+        
+        toastService.success('Question set updated successfully');
+        setShowEditQuestionSetModal(false);
+      }
+    } catch (error) {
+      console.error('Error updating question set:', error);
+      toastService.error('Failed to update question set');
+    } finally {
+      setLoadingEditQuestionSet(false);
+    }
+  };
+
+  // Handle delete question set
+  const handleDeleteQuestionSet = (e, questionSet) => {
+    e.stopPropagation(); // Prevent parent click event (open question set)
+    setQuestionSetToDelete(questionSet);
+    setShowDeleteQuestionSetConfirm(true);
+  };
+
+  // Confirm delete question set
+  const confirmDeleteQuestionSet = async () => {
+    if (!questionSetToDelete) return;
+    
+    try {
+      setLoadingDeleteQuestionSet(prev => ({ ...prev, [questionSetToDelete.id]: true }));
+      const response = await deleteQuestionSet(questionSetToDelete.id);
+      
+      if (response.success) {
+        // Remove the deleted question set from the list
+        setQuestionSet(prevSets => prevSets.filter(set => set.id !== questionSetToDelete.id));
+        
+        // Also remove from filtered question sets if any
+        setFilteredQuestionSets(prevSets => prevSets.filter(set => set.id !== questionSetToDelete.id));
+        
+        toastService.success('Question set deleted successfully');
+      }
+    } catch (error) {
+      console.error('Error deleting question set:', error);
+      
+      // Handle foreign key constraint error specifically
+      if (error.message.includes('questions exist') || error.message.includes('foreign key constraint')) {
+        // Show a more detailed confirmation dialog for force delete
+        const forceDelete = window.confirm(
+          `This question set cannot be deleted because it contains questions that are used in exams.\n\n` +
+          `Do you want to FORCE DELETE this question set?\n` +
+          `WARNING: This will permanently delete the question set and all related questions!\n\n` +
+          `Click OK to force delete, or Cancel to keep the question set.`
+        );
+        
+        if (forceDelete) {
+          try {
+            // You would need to implement a force delete API function similar to forceDropExam
+            // For now, we'll just use the same deleteQuestionSet with an additional parameter
+            const forceResponse = await deleteQuestionSet(questionSetToDelete.id, true);
+            
+            if (forceResponse.success) {
+              setQuestionSet(prevSets => prevSets.filter(set => set.id !== questionSetToDelete.id));
+              setFilteredQuestionSets(prevSets => prevSets.filter(set => set.id !== questionSetToDelete.id));
+              toastService.success('Question set force deleted successfully!');
+            }
+          } catch (forceError) {
+            console.error("Failed to force delete question set:", forceError);
+            toastService.error('Failed to force delete question set: ' + forceError.message);
+          }
+        }
+      } else {
+        toastService.error('Failed to delete question set: ' + error.message);
+      }
+    } finally {
+      setLoadingDeleteQuestionSet(prev => ({ ...prev, [questionSetToDelete.id]: false }));
+      setShowDeleteQuestionSetConfirm(false);
+      setQuestionSetToDelete(null);
+    }
+  };
+
+  const fetchQuestionsForQuestionSet = async (questionSetId) => {
+    try {
+      setLoadingQuestions(true);
+      
+      // Ensure we're using a proper ID value, not an object
+      const setId = typeof questionSetId === 'object' && questionSetId !== null ? questionSetId.id : questionSetId;
+      console.log("Fetching questions for set ID:", setId);
+      
+      const response = await fetchQuestionsForSet(setId);
+      
+      if (response.success) {
+        // The questions are in response.data.questions
+        if (response.data && response.data.questions) {
+          console.log("Setting questions:", response.data.questions);
+          setQuestionsForSet(response.data.questions);
+        } else {
+          console.log("No questions found in response", response.data);
+          setQuestionsForSet([]);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching questions for set:", error);
+      toastService.error('Failed to fetch questions for set');
+      setQuestionsForSet([]);
+    } finally {
+      setLoadingQuestions(false);
+    }
+  };
+
+  const openQuestionSetModal = async (set) => {
+    // Store the active question set data
+    setActiveQuestionSet(set.uuid);
+    setActiveQuestionSetData(set);
+    setActiveQuestionSubject(set.subject_name);
+    
+    // Fetch questions for this set
+    await fetchQuestionsForQuestionSet(set.id);
+    
+    // Open the modal
+    setShowQuestionModal(true);
+    setQuestionSetCreated(true);
   };
 
   const handleEditExam = async (examId) => {
@@ -280,57 +812,115 @@ const AdminPanel = () => {
         setCurrentExamData(exam);
         setExamId(exam.id); // Set the exam ID
         console.log("Setting exam ID to:", exam.id);
+        console.log("Exam sections:", exam.sections);
         setIsEditingExam(true);
         setExamCreated(true);
         
-        // Populate exam form with existing data
-        setExamForm({
-          title: exam.title,
-          description: exam.description,
-          english: { questions: [], timeLimit: '', sequenceOrder: '' },
-          math: { questions: [], timeLimit: '', sequenceOrder: '' },
-          reading: { questions: [], timeLimit: '', sequenceOrder: '' },
-          essay: { topics: [], timeLimit: '', sequenceOrder: '' }
-        });
-
-        // Map sections and mark them as created
-        const sectionsState = {
-          english: false,
-          math: false,
-          reading: false,
-          essay: false,
-        };
-
+        // Initialize examForm with default values for all sections
         const examFormUpdate = {
           title: exam.title,
           description: exam.description,
           english: { questions: [], timeLimit: '', sequenceOrder: '' },
           math: { questions: [], timeLimit: '', sequenceOrder: '' },
           reading: { questions: [], timeLimit: '', sequenceOrder: '' },
-          essay: { topics: [], timeLimit: '', sequenceOrder: '' }
+          essay: { topics: [], timeLimit: '', sequenceOrder: '' },
+          physics: { questions: [], timeLimit: '', sequenceOrder: '' },
+          chemistry: { questions: [], timeLimit: '', sequenceOrder: '' },
+          biology: { questions: [], timeLimit: '', sequenceOrder: '' }
+        };
+
+        // Initialize section state
+        const sectionsState = {
+          english: false,
+          math: false,
+          reading: false,
+          essay: false,
+          physics: false,
+          chemistry: false,
+          biology: false
         };
 
         // Process sections from API response
-        exam.sections.forEach(section => {
-          const sectionName = section.name.toLowerCase();
-          
-          if (examFormUpdate[sectionName]) {
-            sectionsState[sectionName] = true;
-            examFormUpdate[sectionName].timeLimit = section.duration_minutes.toString();
-            examFormUpdate[sectionName].sequenceOrder = section.sequence_order.toString();
+        if (exam.sections && exam.sections.length > 0) {
+          exam.sections.forEach(section => {
+            const sectionName = section.name.toLowerCase();
             
-            // Convert questions to the expected format
-            const questions = section.questions.map(q => ({
-              id: q.id,
-              question: q.question_text,
-              options: q.options.map(opt => opt.text),
-              correctAnswer: q.correct_answer
-            }));
+            // Map API section names to our section keys
+            let sectionKey = sectionName;
             
-            examFormUpdate[sectionName].questions = questions;
-          }
-        });
+            // Handle possible name variations from the API
+            if (sectionName.includes('physics')) sectionKey = 'physics';
+            if (sectionName.includes('chemistry')) sectionKey = 'chemistry';
+            if (sectionName.includes('biology')) sectionKey = 'biology';
+            if (sectionName.includes('english')) sectionKey = 'english';
+            if (sectionName.includes('math')) sectionKey = 'math';
+            if (sectionName.includes('reading')) sectionKey = 'reading';
+            if (sectionName.includes('essay')) sectionKey = 'essay';
+            
+            console.log("Mapping section name:", sectionName, "to key:", sectionKey);
+            
+            if (examFormUpdate[sectionKey]) {
+              sectionsState[sectionKey] = true;
+              
+              // Set time limit and sequence order - handle different API response formats
+              examFormUpdate[sectionKey].timeLimit = 
+                section.time_limit || 
+                section.duration_minutes?.toString() || 
+                '';
+                
+              examFormUpdate[sectionKey].sequenceOrder = 
+                section.sequence_order?.toString() || 
+                '';
+              
+              // Process questions if they exist
+              if (section.questions && section.questions.length > 0) {
+                console.log(`Processing ${section.questions.length} questions for section ${sectionKey}`);
+                
+                examFormUpdate[sectionKey].questions = section.questions.map(q => {
+                  // Handle different question structures in API response
+                  const questionText = q.question_text || q.question || '';
+                  let options = [];
+                  let correctOption = 0;
+                  
+                  // Handle different options formats
+                  if (Array.isArray(q.options)) {
+                    // Format 1: Array of option objects with text property
+                    if (q.options[0] && typeof q.options[0] === 'object' && q.options[0].text) {
+                      options = q.options.map(opt => opt.text);
+                      
+                      // Find correct option index
+                      if (q.correct_answer) {
+                        const correctIndex = q.options.findIndex(opt => 
+                          opt.text === q.correct_answer || 
+                          opt.id === q.correct_answer
+                        );
+                        correctOption = correctIndex >= 0 ? correctIndex : 0;
+                      } else if (q.correct_option !== undefined) {
+                        correctOption = q.correct_option;
+                      }
+                    } 
+                    // Format 2: Array of string options
+                    else if (typeof q.options[0] === 'string') {
+                      options = q.options;
+                      correctOption = q.correct_option !== undefined ? q.correct_option : 0;
+                    }
+                  }
+                  
+                  return {
+                    id: q.id,
+                    question: questionText,
+                    options: options,
+                    correctOption: correctOption
+                  };
+                });
+              }
+            }
+          });
+        }
 
+        console.log("Final section state:", sectionsState);
+        console.log("Final exam form update:", examFormUpdate);
+        
         setSectionCreated(sectionsState);
         setExamForm(examFormUpdate);
         setShowExamForm(true);
@@ -354,13 +944,19 @@ const AdminPanel = () => {
       english: { questions: [], timeLimit: '', sequenceOrder: '' },
       math: { questions: [], timeLimit: '', sequenceOrder: '' },
       reading: { questions: [], timeLimit: '', sequenceOrder: '' },
-      essay: { topics: [], timeLimit: '', sequenceOrder: '' }
+      essay: { topics: [], timeLimit: '', sequenceOrder: '' },
+      physics: { questions: [], timeLimit: '', sequenceOrder: '' },
+      chemistry: { questions: [], timeLimit: '', sequenceOrder: '' },
+      biology: { questions: [], timeLimit: '', sequenceOrder: '' }
     });
     setSectionCreated({
       english: false,
       math: false,
       reading: false,
       essay: false,
+      physics: false,
+      chemistry: false,
+      biology: false
     });
     setExamCreated(false);
     setIsEditingExam(false);
@@ -534,6 +1130,24 @@ const AdminPanel = () => {
             [activeSection]: true
           }));
           setSectionId(res.data.section.id);
+          
+          // Add this section to currentExamData if it exists
+          if (currentExamData && currentExamData.sections) {
+            setCurrentExamData({
+              ...currentExamData,
+              sections: [
+                ...currentExamData.sections,
+                {
+                  id: res.data.section.id,
+                  name: activeSection,
+                  time_limit: examForm[activeSection].timeLimit,
+                  sequence_order: examForm[activeSection].sequenceOrder
+                }
+              ]
+            });
+            console.log("Updated currentExamData with new section:", activeSection);
+          }
+          
           toastService.success(`${activeSection.charAt(0).toUpperCase() + activeSection.slice(1)} section created successfully!`);
         }
       } catch (error) {
@@ -640,6 +1254,7 @@ const AdminPanel = () => {
   };
 
   const handleDeleteSection = (sectionKey, sectionLabel) => {
+    console.log("Deleting section:", sectionKey, sectionLabel);
     setSectionToDelete({ key: sectionKey, label: sectionLabel });
     setShowDeleteConfirm(true);
   };
@@ -650,9 +1265,44 @@ const AdminPanel = () => {
     try {
       setLoadingSectionDelete(true);
       // Find the section ID from currentExamData
-      const sectionData = currentExamData.sections.find(
-        s => s.name.toLowerCase() === sectionToDelete.key
-      );
+      console.log("Looking for section:", sectionToDelete.key);
+      console.log("Available sections:", currentExamData.sections);
+      
+      // Create a mapping of section keys to possible API section names
+      const sectionNameMap = {
+        'physics': ['physics', 'physical science', 'physical'],
+        'chemistry': ['chemistry', 'chem'],
+        'biology': ['biology', 'bio', 'biological science'],
+        'english': ['english', 'eng', 'language'],
+        'math': ['math', 'mathematics', 'maths'],
+        'reading': ['reading', 'read', 'comprehension'],
+        'essay': ['essay', 'writing', 'write']
+      };
+      
+      // Get possible section names for the key
+      const possibleSectionNames = sectionNameMap[sectionToDelete.key] || [sectionToDelete.key];
+      
+      // Find section in API data by checking all possible names
+      let sectionData = null;
+      if (currentExamData.sections) {
+        for (const section of currentExamData.sections) {
+          const sectionNameLower = section.name.toLowerCase();
+          
+          // Check if the section name matches any of the possible names
+          const isMatch = possibleSectionNames.some(name => 
+            sectionNameLower === name || 
+            sectionNameLower.includes(name)
+          );
+          
+          if (isMatch) {
+            sectionData = section;
+            console.log(`Found matching section: ${section.name} (id: ${section.id})`);
+            break;
+          }
+        }
+      }
+      
+      console.log("Found section data:", sectionData);
       
       if (sectionData && sectionData.id) {
         await deleteSection(sectionData.id);
@@ -674,6 +1324,14 @@ const AdminPanel = () => {
           }
         }));
         
+        // Update currentExamData to reflect the deletion
+        if (currentExamData.sections) {
+          setCurrentExamData({
+            ...currentExamData,
+            sections: currentExamData.sections.filter(s => s.id !== sectionData.id)
+          });
+        }
+        
         // Switch to a different section if the deleted one was active
         if (activeSection === sectionToDelete.key) {
           const availableSections = Object.keys(sectionCreated).filter(
@@ -685,6 +1343,9 @@ const AdminPanel = () => {
             setActiveSection('english');
           }
         }
+      } else {
+        console.error("Could not find section ID for deletion:", sectionToDelete.key);
+        toastService.error(`Failed to delete section: Could not find section ID for ${sectionToDelete.key}`);
       }
     } catch (error) {
       console.error("Failed to delete section:", error);
@@ -985,8 +1646,27 @@ const AdminPanel = () => {
                 questionSet.map((set) => (
                   <div
                     key={set.uuid}
-                    className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow border border-gray-200"
+                    className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow border border-gray-200 cursor-pointer relative"
+                    onClick={() => openQuestionSetModal(set)}
                   >
+                    <div className="absolute top-2 right-2 flex space-x-2">
+                      <button
+                        onClick={(e) => handleOpenEditQuestionSetModal(e, set)}
+                        className="p-1 rounded-full text-blue-500 hover:text-blue-700 transition"
+                        title="Edit Question Set"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+                      
+                      <button
+                        onClick={(e) => handleDeleteQuestionSet(e, set)}
+                        className="p-1 rounded-full text-red-500 hover:text-red-700 transition"
+                        title="Delete Question Set"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                    
                     <div className="space-y-4">
                       <div>
                         <h3 className="text-xl font-semibold text-gray-800">{set.set_name}</h3>
@@ -1000,26 +1680,21 @@ const AdminPanel = () => {
                         <Calendar className="w-4 h-4 mr-2" />
                         <span>{new Date(set.created_at).toLocaleDateString()}</span>
                       </div>
-                      <div className="flex space-x-3">
+                      {/* <div className="flex space-x-3">
                         <button
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
                             setActiveQuestionSet(set.uuid);
-                            setShowMathMCQForm(true);
+                            setActiveQuestionSetData(set);
+                            setActiveQuestionSubject(set.subject_name);
+                            setShowQuestionModal(true);
+                            setQuestionSetCreated(true);
                           }}
                           className="flex-1 bg-blue-600 text-white px-4 py-2 rounded font-medium hover:bg-blue-700 transition-colors"
                         >
-                          Add Question
+                          Add Questions
                         </button>
-                        <button
-                          onClick={() => {
-                            setActiveQuestionSet(set.uuid);
-                            setShowQuestionList(true);
-                          }}
-                          className="flex-1 bg-gray-100 text-gray-700 px-4 py-2 rounded font-medium hover:bg-gray-200 transition-colors"
-                        >
-                          View Questions
-                        </button>
-                      </div>
+                      </div> */}
                     </div>
                   </div>
                 ))
@@ -1483,14 +2158,67 @@ const AdminPanel = () => {
 
     {activeSection === 'english' && sectionCreated.english && (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <MCQMaker activeSection={activeSection} addQuestion={addQuestion} />
+        <div>
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Add English Question</h3>
+            <button 
+              onClick={toggleQuestionSetSearch}
+              className="flex items-center text-blue-600 hover:text-blue-800"
+              title="Search question sets"
+            >
+              <Search className="w-4 h-4 mr-1" />
+              {showQuestionSetSearch ? 'Hide Sets' : 'Search Sets'}
+            </button>
+          </div>
+          
+          {showQuestionSetSearch ? (
+            <div className="mb-4 bg-gray-50 p-4 rounded-lg">
+              <div className="mb-3">
+                <input
+                  type="text"
+                  placeholder="Search question sets by name..."
+                  value={questionSetSearch}
+                  onChange={handleQuestionSetSearchChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              
+              {loadingQuestionSets ? (
+                <div className="text-center py-4">
+                  <div className="inline-block h-6 w-6 animate-spin rounded-full border-4 border-solid border-current border-blue-600 border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]" role="status">
+                    <span className="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">Loading...</span>
+                  </div>
+                </div>
+              ) : filteredQuestionSets.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto">
+                  {filteredQuestionSets.map(set => (
+                    <div 
+                      key={set.id}
+                      className="bg-white p-3 rounded border border-gray-200 hover:border-blue-400 cursor-pointer transition-colors relative group"
+                    >
+                      <div onClick={() => addQuestionsFromSet(set.id, activeSection)}>
+                        <h4 className="font-medium text-gray-900">{set.set_name}</h4>
+                        <p className="text-sm text-gray-500">Subject: {set.subject_name}</p>
+                        <p className="text-xs text-gray-400 mt-1">Click to add questions from this set</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-center text-gray-500 py-2">No question sets found. Try a different search term.</p>
+              )}
+            </div>
+          ) : null}
+          
+          <MCQMaker activeSection={activeSection} addQuestion={addQuestion} />
+        </div>
 
-          <QuestionsList
-            activeSection={activeSection}
-            examForm={examForm}
-            removeQuestion={removeQuestion}
-            loadingRemoveQuestion={loadingRemoveQuestion}
-          />
+        <QuestionsList
+          activeSection={activeSection}
+          examForm={examForm}
+          removeQuestion={removeQuestion}
+          loadingRemoveQuestion={loadingRemoveQuestion}
+        />
       </div>
     )}
 
@@ -1553,14 +2281,67 @@ const AdminPanel = () => {
 
     {activeSection === 'math' && sectionCreated.math && (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <MathMCQMaker activeSection={activeSection} addQuestion={addQuestion} />
+        <div>
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Add Math Question</h3>
+            <button 
+              onClick={toggleQuestionSetSearch}
+              className="flex items-center text-blue-600 hover:text-blue-800"
+              title="Search question sets"
+            >
+              <Search className="w-4 h-4 mr-1" />
+              {showQuestionSetSearch ? 'Hide Sets' : 'Search Sets'}
+            </button>
+          </div>
+          
+          {showQuestionSetSearch ? (
+            <div className="mb-4 bg-gray-50 p-4 rounded-lg">
+              <div className="mb-3">
+                <input
+                  type="text"
+                  placeholder="Search question sets by name..."
+                  value={questionSetSearch}
+                  onChange={handleQuestionSetSearchChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              
+              {loadingQuestionSets ? (
+                <div className="text-center py-4">
+                  <div className="inline-block h-6 w-6 animate-spin rounded-full border-4 border-solid border-current border-blue-600 border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]" role="status">
+                    <span className="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">Loading...</span>
+                  </div>
+                </div>
+              ) : filteredQuestionSets.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto">
+                  {filteredQuestionSets.map(set => (
+                    <div 
+                      key={set.id}
+                      className="bg-white p-3 rounded border border-gray-200 hover:border-green-400 cursor-pointer transition-colors relative group"
+                    >
+                      <div onClick={() => addQuestionsFromSet(set.id, activeSection)}>
+                        <h4 className="font-medium text-gray-900">{set.set_name}</h4>
+                        <p className="text-sm text-gray-500">Subject: {set.subject_name}</p>
+                        <p className="text-xs text-gray-400 mt-1">Click to add questions from this set</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-center text-gray-500 py-2">No question sets found. Try a different search term.</p>
+              )}
+            </div>
+          ) : null}
+          
+          <MathMCQMaker activeSection={activeSection} addQuestion={addQuestion} />
+        </div>
          
-          <MathQuestionsList
-            activeSection={activeSection}
-            examForm={examForm}
-            removeQuestion={removeQuestion}
-            loadingRemoveQuestion={loadingRemoveQuestion}
-          />
+        <MathQuestionsList
+          activeSection={activeSection}
+          examForm={examForm}
+          removeQuestion={removeQuestion}
+          loadingRemoveQuestion={loadingRemoveQuestion}
+        />
       </div>
     )}
 
@@ -1624,7 +2405,60 @@ const AdminPanel = () => {
 
     {activeSection === 'reading' && sectionCreated.reading && (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <MCQMaker activeSection={activeSection} addQuestion={addQuestion} />
+        <div>
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Add Reading Question</h3>
+            <button 
+              onClick={toggleQuestionSetSearch}
+              className="flex items-center text-blue-600 hover:text-blue-800"
+              title="Search question sets"
+            >
+              <Search className="w-4 h-4 mr-1" />
+              {showQuestionSetSearch ? 'Hide Sets' : 'Search Sets'}
+            </button>
+          </div>
+          
+          {showQuestionSetSearch ? (
+            <div className="mb-4 bg-gray-50 p-4 rounded-lg">
+              <div className="mb-3">
+                <input
+                  type="text"
+                  placeholder="Search question sets by name..."
+                  value={questionSetSearch}
+                  onChange={handleQuestionSetSearchChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              
+              {loadingQuestionSets ? (
+                <div className="text-center py-4">
+                  <div className="inline-block h-6 w-6 animate-spin rounded-full border-4 border-solid border-current border-blue-600 border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]" role="status">
+                    <span className="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">Loading...</span>
+                  </div>
+                </div>
+              ) : filteredQuestionSets.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto">
+                  {filteredQuestionSets.map(set => (
+                    <div 
+                      key={set.id}
+                      className="bg-white p-3 rounded border border-gray-200 hover:border-purple-400 cursor-pointer transition-colors relative group"
+                    >
+                      <div onClick={() => addQuestionsFromSet(set.id, activeSection)}>
+                        <h4 className="font-medium text-gray-900">{set.set_name}</h4>
+                        <p className="text-sm text-gray-500">Subject: {set.subject_name}</p>
+                        <p className="text-xs text-gray-400 mt-1">Click to add questions from this set</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-center text-gray-500 py-2">No question sets found. Try a different search term.</p>
+              )}
+            </div>
+          ) : null}
+          
+          <MCQMaker activeSection={activeSection} addQuestion={addQuestion} />
+        </div>
         <QuestionsList
           activeSection={activeSection}
           examForm={examForm}
@@ -1654,7 +2488,7 @@ const AdminPanel = () => {
               },
             })
           }
-          className="px-4 py-2 border rounded-lg w-1/2 mb-3 focus:outline-none focus:ring-2 focus:ring-red-500"
+          className="px-4 py-2 border rounded-lg w-1/2 mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <br />
         <input
@@ -1670,7 +2504,7 @@ const AdminPanel = () => {
               },
             })
           }
-          className="px-4 py-2 border rounded-lg w-1/2 mb-3 focus:outline-none focus:ring-2 focus:ring-red-500"
+          className="px-4 py-2 border rounded-lg w-1/2 mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <br />
         <button
@@ -1679,7 +2513,7 @@ const AdminPanel = () => {
           className={`ml-3 ${
             !examForm.physics.timeLimit || !examForm.physics.sequenceOrder
               ? "bg-gray-400 cursor-not-allowed"
-              : "bg-red-600 hover:bg-red-700"
+              : "bg-blue-600 hover:bg-blue-700"
           } text-white px-4 py-2 rounded-lg transition-colors flex items-center justify-center`}
         >
           {loadingCreateSection ? (
@@ -1693,7 +2527,60 @@ const AdminPanel = () => {
 
     {activeSection === 'physics' && sectionCreated.physics && (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <MCQMaker activeSection={activeSection} addQuestion={addQuestion} />
+        <div>
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Add Physics Question</h3>
+            <button 
+              onClick={toggleQuestionSetSearch}
+              className="flex items-center text-red-600 hover:text-red-800"
+              title="Search question sets"
+            >
+              <Search className="w-4 h-4 mr-1" />
+              {showQuestionSetSearch ? 'Hide Sets' : 'Search Sets'}
+            </button>
+          </div>
+          
+          {showQuestionSetSearch ? (
+            <div className="mb-4 bg-gray-50 p-4 rounded-lg">
+              <div className="mb-3">
+                <input
+                  type="text"
+                  placeholder="Search question sets by name..."
+                  value={questionSetSearch}
+                  onChange={handleQuestionSetSearchChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                />
+              </div>
+              
+              {loadingQuestionSets ? (
+                <div className="text-center py-4">
+                  <div className="inline-block h-6 w-6 animate-spin rounded-full border-4 border-solid border-current border-red-600 border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]" role="status">
+                    <span className="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">Loading...</span>
+                  </div>
+                </div>
+              ) : filteredQuestionSets.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto">
+                  {filteredQuestionSets.map(set => (
+                    <div 
+                      key={set.id}
+                      className="bg-white p-3 rounded border border-gray-200 hover:border-red-400 cursor-pointer transition-colors relative group"
+                    >
+                      <div onClick={() => addQuestionsFromSet(set.id, activeSection)}>
+                        <h4 className="font-medium text-gray-900">{set.set_name}</h4>
+                        <p className="text-sm text-gray-500">Subject: {set.subject_name}</p>
+                        <p className="text-xs text-gray-400 mt-1">Click to add questions from this set</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-center text-gray-500 py-2">No question sets found. Try a different search term.</p>
+              )}
+            </div>
+          ) : null}
+          
+          <MCQMaker activeSection={activeSection} addQuestion={addQuestion} />
+        </div>
         <QuestionsList
           activeSection={activeSection}
           examForm={examForm}
@@ -1748,7 +2635,7 @@ const AdminPanel = () => {
           className={`ml-3 ${
             !examForm.chemistry.timeLimit || !examForm.chemistry.sequenceOrder
               ? "bg-gray-400 cursor-not-allowed"
-              : "bg-orange-600 hover:bg-orange-700"
+              : "bg-blue-600 hover:bg-blue-700"
           } text-white px-4 py-2 rounded-lg transition-colors flex items-center justify-center`}
         >
           {loadingCreateSection ? (
@@ -1762,7 +2649,60 @@ const AdminPanel = () => {
 
     {activeSection === 'chemistry' && sectionCreated.chemistry && (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <MCQMaker activeSection={activeSection} addQuestion={addQuestion} />
+        <div>
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Add Chemistry Question</h3>
+            <button 
+              onClick={toggleQuestionSetSearch}
+              className="flex items-center text-orange-600 hover:text-orange-800"
+              title="Search question sets"
+            >
+              <Search className="w-4 h-4 mr-1" />
+              {showQuestionSetSearch ? 'Hide Sets' : 'Search Sets'}
+            </button>
+          </div>
+          
+          {showQuestionSetSearch ? (
+            <div className="mb-4 bg-gray-50 p-4 rounded-lg">
+              <div className="mb-3">
+                <input
+                  type="text"
+                  placeholder="Search question sets by name..."
+                  value={questionSetSearch}
+                  onChange={handleQuestionSetSearchChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
+              </div>
+              
+              {loadingQuestionSets ? (
+                <div className="text-center py-4">
+                  <div className="inline-block h-6 w-6 animate-spin rounded-full border-4 border-solid border-current border-orange-600 border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]" role="status">
+                    <span className="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">Loading...</span>
+                  </div>
+                </div>
+              ) : filteredQuestionSets.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto">
+                  {filteredQuestionSets.map(set => (
+                    <div 
+                      key={set.id}
+                      className="bg-white p-3 rounded border border-gray-200 hover:border-orange-400 cursor-pointer transition-colors relative group"
+                    >
+                      <div onClick={() => addQuestionsFromSet(set.id, activeSection)}>
+                        <h4 className="font-medium text-gray-900">{set.set_name}</h4>
+                        <p className="text-sm text-gray-500">Subject: {set.subject_name}</p>
+                        <p className="text-xs text-gray-400 mt-1">Click to add questions from this set</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-center text-gray-500 py-2">No question sets found. Try a different search term.</p>
+              )}
+            </div>
+          ) : null}
+          
+          <MCQMaker activeSection={activeSection} addQuestion={addQuestion} />
+        </div>
         <QuestionsList
           activeSection={activeSection}
           examForm={examForm}
@@ -1816,8 +2756,8 @@ const AdminPanel = () => {
           disabled={!examForm.biology.timeLimit || !examForm.biology.sequenceOrder || loadingCreateSection}
           className={`ml-3 ${
             !examForm.biology.timeLimit || !examForm.biology.sequenceOrder
-              ? "bg-gray-400 cursor-not-allowed"
-              : "bg-teal-600 hover:bg-teal-700"
+               ? "bg-gray-400 cursor-not-allowed"
+              : "bg-blue-600 hover:bg-blue-700"
           } text-white px-4 py-2 rounded-lg transition-colors flex items-center justify-center`}
         >
           {loadingCreateSection ? (
@@ -1831,7 +2771,76 @@ const AdminPanel = () => {
 
     {activeSection === 'biology' && sectionCreated.biology && (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <MCQMaker activeSection={activeSection} addQuestion={addQuestion} />
+        <div>
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Add Biology Question</h3>
+            <button 
+              onClick={toggleQuestionSetSearch}
+              className="flex items-center text-teal-600 hover:text-teal-800"
+              title="Search question sets"
+            >
+              <Search className="w-4 h-4 mr-1" />
+              {showQuestionSetSearch ? 'Hide Sets' : 'Search Sets'}
+            </button>
+          </div>
+          
+          {showQuestionSetSearch ? (
+            <div className="mb-4 bg-gray-50 p-4 rounded-lg">
+              <div className="mb-3">
+                <input
+                  type="text"
+                  placeholder="Search question sets by name..."
+                  value={questionSetSearch}
+                  onChange={handleQuestionSetSearchChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                />
+              </div>
+              
+              {loadingQuestionSets ? (
+                <div className="text-center py-4">
+                  <div className="inline-block h-6 w-6 animate-spin rounded-full border-4 border-solid border-current border-teal-600 border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]" role="status">
+                    <span className="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">Loading...</span>
+                  </div>
+                </div>
+              ) : filteredQuestionSets.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto">
+                  {filteredQuestionSets.map(set => (
+                    <div 
+                      key={set.id}
+                      className="bg-white p-3 rounded border border-gray-200 hover:border-teal-400 cursor-pointer transition-colors relative group"
+                    >
+                      <div onClick={() => addQuestionsFromSet(set.id, activeSection)}>
+                        <h4 className="font-medium text-gray-900">{set.set_name}</h4>
+                        <p className="text-sm text-gray-500">Subject: {set.subject_name}</p>
+                        <p className="text-xs text-gray-400 mt-1">Click to add questions from this set</p>
+                      </div>
+                      <div className="absolute top-2 right-2 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={(e) => handleOpenEditQuestionSetModal(e, set)}
+                          className="text-teal-600 hover:text-teal-800 p-1"
+                          title="Edit question set"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={(e) => handleDeleteQuestionSet(e, set)}
+                          className="text-teal-600 hover:text-teal-800 p-1"
+                          title="Delete question set"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-center text-gray-500 py-2">No question sets found. Try a different search term.</p>
+              )}
+            </div>
+          ) : null}
+          
+          <MCQMaker activeSection={activeSection} addQuestion={addQuestion} />
+        </div>
         <QuestionsList
           activeSection={activeSection}
           examForm={examForm}
@@ -2062,7 +3071,9 @@ const AdminPanel = () => {
                 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
               `}</style>
               <div className="flex justify-between items-center mb-6 sticky top-0 bg-white z-10 pb-2">
-                <h3 className="text-xl font-bold text-gray-800">Create Question Set</h3>
+                <h3 className="text-xl font-bold text-gray-800">
+                  {activeQuestionSetData ? `${activeQuestionSetData.set_name} - Add Questions` : 'Create Question Set'}
+                </h3>
                 <button
                   onClick={() => {
                     setShowQuestionModal(false);
@@ -2070,6 +3081,8 @@ const AdminPanel = () => {
                     setQuestionSetName('');
                     setQuestionSetCreated(false);
                     setActiveQuestionSubject('');
+                    setActiveQuestionSetData(null);
+                    setQuestionsForSet([]);
                     resetQuestionModal();
                   }}
                   className="text-gray-500 hover:text-gray-700 transition-colors"
@@ -2160,19 +3173,78 @@ const AdminPanel = () => {
                           </div>
                         </div>
                         <button
-                          onClick={() => handleAddQuestion()}
-                          disabled={!questionInput || questionOptions.some(opt => !opt) || correctOption === null}
+                          onClick={handleAddQuestionButtonClick}
+                          disabled={loadingAddSetQuestion || !questionInput || questionOptions.some(opt => !opt) || correctOption === null}
                           className="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors mt-2 disabled:bg-gray-400 disabled:cursor-not-allowed"
                         >
-                          Add Question
+                          {loadingAddSetQuestion ? (
+                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto"></div>
+                          ) : (
+                            'Add Question'
+                          )}
                         </button>
                       </>
                     )}
                   </div>
                   {/* Right: Preview */}
                   <div>
-                    <div className="font-semibold mb-2">Preview ({subjectTabs.find(s=>s.key===activeQuestionSubject)?.label || ''})</div>
-                    {activeQuestionSubject === 'math' ? (
+                    <div className="font-semibold mb-2">
+                      {activeQuestionSetData?.id ? 'Questions in Set' : 'Preview'} 
+                      ({subjectTabs.find(s=>s.key===activeQuestionSubject)?.label || ''})
+                    </div>
+
+                    {loadingQuestions ? (
+                      <div className="text-center py-4">
+                        <div className="inline-block h-6 w-6 animate-spin rounded-full border-4 border-solid border-current border-blue-600 border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]" role="status">
+                          <span className="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">Loading...</span>
+                        </div>
+                      </div>
+                    ) : activeQuestionSetData?.id ? (
+                      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                        {questionsForSet.length > 0 ? (
+                          <div className="divide-y divide-gray-200">
+                            {questionsForSet.map((question, index) => (
+                              <div key={question.id} className="p-4 hover:bg-gray-50">
+                                <div className="flex justify-between items-start">
+                                  <div className="flex-1">
+                                    <p className="text-gray-800 font-medium mb-2">
+                                      {index + 1}. {question.question_text}
+                                    </p>
+                                    <div className="grid grid-cols-1 gap-1 ml-6">
+                                      {question.options.map((option, idx) => (
+                                        <div key={idx} className="flex items-center">
+                                          <div 
+                                            className={`w-4 h-4 rounded-full mr-2 ${option === question.correct_answer ? 'bg-green-600' : 'bg-gray-200'}`}>
+                                          </div>
+                                          <span className={option === question.correct_answer ? 'font-medium' : ''}>
+                                            {option}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                  <button
+                                    onClick={() => handleRemoveQuestionFromSet(question.id)}
+                                    className="text-red-500 hover:text-red-700 transition-colors"
+                                    disabled={loadingRemoveSetQuestion[question.id]}
+                                  >
+                                    {loadingRemoveSetQuestion[question.id] ? (
+                                      <div className="w-5 h-5 border-2 border-red-500 border-t-transparent rounded-full animate-spin"></div>
+                                    ) : (
+                                      <Trash2 className="w-5 h-5" />
+                                    )}
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="p-6 text-center">
+                            <p className="text-gray-500">No questions in this set yet.</p>
+                          </div>
+                        )}
+                      </div>
+                    ) : activeQuestionSubject === 'math' ? (
                       <MathQuestionsList
                         activeSection={activeQuestionSubject}
                         examForm={{ math: { questions: questionModalBank.math } }}
@@ -2265,6 +3337,129 @@ const AdminPanel = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Question Set Modal */}
+      {showEditQuestionSetModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold text-gray-800">Edit Question Set</h3>
+              <button
+                onClick={() => setShowEditQuestionSetModal(false)}
+                className="text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleUpdateQuestionSet}>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Subject Name
+                </label>
+                <select
+                  value={editQuestionSetData.subject_name}
+                  onChange={(e) => setEditQuestionSetData({...editQuestionSetData, subject_name: e.target.value})}
+                  className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                >
+                  <option value="">-- Select Subject --</option>
+                  {subjectTabs.map(subject => (
+                    <option key={subject.key} value={subject.key}>{subject.label}</option>
+                  ))}
+                </select>
+              </div>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Set Name
+                </label>
+                <input
+                  type="text"
+                  value={editQuestionSetData.set_name}
+                  onChange={(e) => setEditQuestionSetData({...editQuestionSetData, set_name: e.target.value})}
+                  className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+              
+              <div className="flex justify-end space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setShowEditQuestionSetModal(false)}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-100 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition flex items-center space-x-2"
+                  disabled={loadingEditQuestionSet}
+                >
+                  {loadingEditQuestionSet ? (
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <>
+                      <Edit3 className="w-4 h-4" />
+                      <span>Update</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Question Set Confirmation Modal */}
+      {showDeleteQuestionSetConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold text-gray-800">Confirm Delete</h3>
+              <button
+                onClick={() => {
+                  setShowDeleteQuestionSetConfirm(false);
+                  setQuestionSetToDelete(null);
+                }}
+                className="text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to delete the question set "<span className="font-semibold">{questionSetToDelete?.set_name}</span>"? This action cannot be undone.
+            </p>
+            
+            <div className="flex justify-end space-x-2">
+              <button
+                onClick={() => {
+                  setShowDeleteQuestionSetConfirm(false);
+                  setQuestionSetToDelete(null);
+                }}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-100 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteQuestionSet}
+                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition flex items-center space-x-2"
+                disabled={loadingDeleteQuestionSet[questionSetToDelete?.id]}
+              >
+                {loadingDeleteQuestionSet[questionSetToDelete?.id] ? (
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    <span>Delete</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

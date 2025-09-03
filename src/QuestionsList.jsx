@@ -92,7 +92,7 @@ const QuestionsList = ({ activeSection, examForm, removeQuestion, loadingRemoveQ
                     <li
                       key={i}
                       className={
-                        q.correctAnswer === opt ? "font-bold text-green-600" : ""
+                        i === q.correctAnswer ? "font-bold text-green-600" : ""
                       }
                     >
                       {String.fromCharCode(65 + i)}. {renderContent(opt)}

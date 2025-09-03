@@ -1,5 +1,46 @@
 export const BACKEND_URL = "http://172.232.104.77:5000/api";
 
+//............Search Question Sets.....................
+
+export async function searchQuestionSets(searchTerm = '', subject = '') {
+  const adminToken = localStorage.getItem("adminToken");
+
+  if (!adminToken) {
+    throw new Error("Authentication required");
+  }
+
+  try {
+    // Build query parameters
+    const params = new URLSearchParams();
+    if (searchTerm) params.append('search', searchTerm);
+    if (subject) params.append('subject', subject);
+    
+    const queryString = params.toString() ? `?${params.toString()}` : '';
+    
+    const response = await fetch(`${BACKEND_URL}/question-sets${queryString}`, {
+      method: "GET",
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${adminToken}`
+      }
+    });
+    
+    const data = await response.json();
+    
+    if (response.ok) {
+      console.log("Question sets searched successfully:", data);
+      return { success: true, data: data.data || data };
+    }
+    else {
+      console.error("API error response:", data);
+      throw new Error(data.message || "Failed to search question sets");
+    }
+  } catch (error) {
+    console.error("Error searching question sets:", error);
+    throw error;
+  }
+}
+
 // .................Fetch all exams..................................
 
 export async function getExams() {
@@ -151,6 +192,12 @@ export async function createQuestions(sectionId, question, type, options, answer
   if (!adminToken) throw new Error("Authentication required");
 
   try {
+    console.log("Creating question with answer index:", answer);
+    
+    // Get the correct answer text from the options array
+    const correctAnswer = typeof answer === 'number' && options[answer] ? options[answer] : answer;
+    console.log("Correct answer being sent to API:", correctAnswer);
+    
     const response = await fetch(`${BACKEND_URL}/exams/sections/${sectionId}/questions`, {
       method: "POST",
       headers: {
@@ -161,7 +208,7 @@ export async function createQuestions(sectionId, question, type, options, answer
         question_text: question,
         question_type: type,
         options: options.map(opt => ({ text: opt })), 
-        correct_answer: answer
+        correct_answer: answer  // Keep as index for consistency
       }),
     });
 
@@ -628,6 +675,279 @@ export async function fetchQuestionSet(subject, setName) {
     }
   } catch (error) {
     console.error("Error fetching sets:", error);
+    throw error;
+  }
+}
+
+//............Add Question to Question Set.....................
+
+export async function addQuestionToSet(questionSetId, questionText, questionType, options, correctAnswer) {
+  
+  const adminToken = localStorage.getItem("adminToken");
+
+  if (!adminToken) {
+    throw new Error("Authentication required");
+  }
+
+  // Make sure we have a valid question set ID
+  if (!questionSetId) {
+    throw new Error("Question set ID is required");
+  }
+
+  // Ensure questionSetId is treated as a primitive value, not an object
+  const setId = typeof questionSetId === 'object' ? questionSetId.id : questionSetId;
+
+  // Format options if needed - ensure we have an array of strings
+  let formattedOptions = [];
+  if (Array.isArray(options)) {
+    formattedOptions = options.map(opt => {
+      if (typeof opt === 'object' && opt !== null) {
+        // If the option is an object, try to get a string representation
+        return opt.text || opt.toString() || '';
+      } else {
+        // If it's already a string or primitive, use it directly
+        return String(opt);
+      }
+    });
+  } else if (options) {
+    // If options is not an array but exists, make it an array
+    formattedOptions = [String(options)];
+  }
+
+  // Format correct answer - ensure it's a string
+  let formattedAnswer = '';
+  if (correctAnswer !== null && correctAnswer !== undefined) {
+    if (typeof correctAnswer === 'object') {
+      formattedAnswer = correctAnswer.text || correctAnswer.toString() || '';
+    } else {
+      formattedAnswer = String(correctAnswer);
+    }
+  }
+
+  try {
+    console.log(`Sending request to ${BACKEND_URL}/question-sets/${setId}/questions`);
+    console.log("Request payload:", {
+      question_text: questionText,
+      question_type: questionType,
+      options: formattedOptions,
+      correct_answer: formattedAnswer
+    });
+    
+    // Ensure the URL is correctly formatted
+    const url = `${BACKEND_URL}/question-sets/${setId}/questions`;
+    
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${adminToken}`
+      },
+      body: JSON.stringify({
+        question_text: questionText || '',
+        question_type: questionType || 'mcq',
+        options: formattedOptions,
+        correct_answer: formattedAnswer
+      }),
+    });
+    
+    // Safely parse JSON response
+    let data;
+    try {
+      const text = await response.text();
+      data = text ? JSON.parse(text) : {};
+    } catch (parseError) {
+      console.error("Error parsing JSON response:", parseError);
+      throw new Error(`Failed to parse server response: ${parseError.message}`);
+    }
+    
+    if (response.ok) {
+      console.log("Question added successfully:", data);
+      return { ...data, success: true };
+    }
+    else {
+      console.error("API error response:", data);
+      // Throw a more detailed error message
+      const errorMessage = data.message || 
+                          (data.error ? (typeof data.error === 'string' ? data.error : JSON.stringify(data.error)) : 
+                          "Failed to add question to set");
+      throw new Error(errorMessage);
+    }
+  } catch (error) {
+    console.error("Error adding question:", error);
+    throw error;
+  }
+}
+
+//............Remove Question from Question Set.....................
+
+export async function removeQuestionFromSet(questionId) {
+  
+  const adminToken = localStorage.getItem("adminToken");
+
+  if (!adminToken) {
+    throw new Error("Authentication required");
+  }
+
+  try {
+    // Ensure the ID is not an object
+    const qId = typeof questionId === 'object' && questionId !== null ? questionId.id : questionId;
+    
+    console.log("API Removing question ID:", qId);
+    
+    const response = await fetch(`${BACKEND_URL}/question-sets/questions/${qId}`, {
+      method: "DELETE",
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${adminToken}`
+      }
+    });
+    
+    const data = await response.json();
+    
+    if (response.ok) {
+      console.log("Question removed successfully:", data);
+      return data;
+    }
+    else {
+      console.error("API error response:", data);
+      throw new Error(data.message || "Failed to remove question from set");
+    }
+  } catch (error) {
+    console.error("Error removing question:", error);
+    throw error;
+  }
+}
+
+//............Fetch Questions for a Question Set.....................
+
+export async function fetchQuestionsForSet(questionSetId) {
+  
+  const adminToken = localStorage.getItem("adminToken");
+
+  if (!adminToken) {
+    throw new Error("Authentication required");
+  }
+
+  try {
+    // Ensure the ID is not an object
+    const setId = typeof questionSetId === 'object' && questionSetId !== null ? questionSetId.id : questionSetId;
+    
+    console.log("API Fetching questions for set ID:", setId);
+    
+    const response = await fetch(`${BACKEND_URL}/question-sets/${setId}`, {
+      method: "GET",
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${adminToken}`
+      }
+    });
+    
+    const data = await response.json();
+    
+    if (response.ok) {
+      console.log("Questions fetched successfully:", data);
+      return data;
+    }
+    else {
+      console.error("API error response:", data);
+      throw new Error(data.message || "Failed to fetch questions for set");
+    }
+  } catch (error) {
+    console.error("Error fetching questions:", error);
+    throw error;
+  }
+}
+
+//............Edit Question Set.....................
+
+export async function editQuestionSet(questionSetId, subjectName, setName) {
+  const adminToken = localStorage.getItem("adminToken");
+
+  if (!adminToken) {
+    throw new Error("Authentication required");
+  }
+
+  try {
+    // Ensure the ID is not an object
+    const setId = typeof questionSetId === 'object' && questionSetId !== null ? questionSetId.id : questionSetId;
+    
+    console.log("API Editing question set with ID:", setId);
+    
+    const response = await fetch(`${BACKEND_URL}/question-sets/${setId}`, {
+      method: "PUT",
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${adminToken}`
+      },
+      body: JSON.stringify({
+        subject_name: subjectName,
+        set_name: setName
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (response.ok) {
+      console.log("Question set edited successfully:", data);
+      return { success: true, data };
+    }
+    else {
+      console.error("API error response:", data);
+      throw new Error(data.message || "Failed to edit question set");
+    }
+  } catch (error) {
+    console.error("Error editing question set:", error);
+    throw error;
+  }
+}
+
+//............Delete Question Set.....................
+
+export async function deleteQuestionSet(questionSetId, forceDelete = false) {
+  const adminToken = localStorage.getItem("adminToken");
+
+  if (!adminToken) {
+    throw new Error("Authentication required");
+  }
+
+  try {
+    // Ensure the ID is not an object
+    const setId = typeof questionSetId === 'object' && questionSetId !== null ? questionSetId.id : questionSetId;
+    
+    console.log("API Deleting question set with ID:", setId, forceDelete ? "(Force Delete)" : "");
+    
+    // Add force delete parameter if needed
+    const url = forceDelete 
+      ? `${BACKEND_URL}/question-sets/${setId}?force=true` 
+      : `${BACKEND_URL}/question-sets/${setId}`;
+    
+    const response = await fetch(url, {
+      method: "DELETE",
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${adminToken}`
+      }
+    });
+    
+    // If it's a 204 No Content response
+    if (response.status === 204) {
+      console.log("Question set deleted successfully");
+      return { success: true };
+    }
+    
+    // Handle other successful responses
+    if (response.ok) {
+      const data = await response.json();
+      console.log("Question set deleted successfully:", data);
+      return { success: true, data };
+    }
+    else {
+      const data = await response.json().catch(() => ({}));
+      console.error("API error response:", data);
+      throw new Error(data.message || "Failed to delete question set");
+    }
+  } catch (error) {
+    console.error("Error deleting question set:", error);
     throw error;
   }
 }
