@@ -2,7 +2,7 @@ import logo from "../assets/logo.png"
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { navigateAndScrollToTop } from '../utils/navigation';
-import { logout, getSessionCount } from '../utils/api';
+import { logout, getSessionCount } from '../utils/auth';
 import LogRegModal from "../LogRegModal";
 import DeviceManagementModal from "./DeviceManagementModal";
 import { 

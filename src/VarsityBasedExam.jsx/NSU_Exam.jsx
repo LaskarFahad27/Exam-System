@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from "react-router-dom";
 import { navigateAndScrollToTop } from '../utils/navigation';
-import { logout } from '../utils/api';
+import { logout } from '../utils/auth';
 import Header from '../components/Header';
 import { 
   CheckCircle, 

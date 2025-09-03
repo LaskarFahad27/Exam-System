@@ -11,6 +11,7 @@ import AdminLogin from "./AdminLogin";
 import AdminPanel from "./Admin";
 import LandingPage from "./LandingPage";
 import ExamSelectionPage from "./ExamSelectionPage";
+import SessionsTest from "./components/SessionsTest";
 import Footer from "./components/Footer";
 import ScrollToTop from "./components/ScrollToTop";
 
@@ -18,14 +19,24 @@ function App() {
   return (
     <div className="flex flex-col min-h-screen">
       <Toaster
-        position="top-center"
+        position="bottom-center"
         toastOptions={{
-          duration: 2000,
+          duration: 2500,
           style: {
-            padding: '12px 16px',
+            padding: '10px 12px',
             borderRadius: '8px',
             boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+            maxWidth: '90vw',
+            width: 'auto',
+            fontSize: 'clamp(0.875rem, 2.5vw, 1rem)',
+            zIndex: 9999,
           },
+        }}
+        containerStyle={{
+          bottom: '4rem',
+          maxWidth: '96vw',
+          margin: '0 auto',
+          zIndex: 9999,
         }}
       />
       <ScrollToTop />
@@ -39,6 +50,7 @@ function App() {
           <Route path="/exam/uiu" element={<UIU_Exam />} /> 
           <Route path="/exam-selection" element={<ExamSelectionPage />} />
           <Route path="/online_exam" element={<OnlineExam />} />
+          <Route path="/test-sessions" element={<SessionsTest />} />
           <Route path="/adminlogin" element={<AdminLogin />} />
           <Route path="/admin" element={<AdminPanel />} />
         </Routes>

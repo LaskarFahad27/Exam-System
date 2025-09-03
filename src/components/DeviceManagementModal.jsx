@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Monitor, Smartphone, Laptop, Tablet, LogOut, RefreshCw, Shield } from 'lucide-react';
-import { getUserSessions, logoutSpecificSession, logoutOtherDevices } from '../utils/api';
+import { getUserSessions, logoutSpecificSession, logoutOtherDevices } from '../utils/auth';
 import './DeviceModal.css';
 
 const DeviceManagementModal = ({ isOpen, onClose }) => {
@@ -162,14 +162,13 @@ const DeviceManagementModal = ({ isOpen, onClose }) => {
       setLoading(true);
       setError(null);
       const response = await getUserSessions();
-      // Extract the sessions array from the response
-      if (response.success && response.data && response.data.sessions) {
-        // Debug log the sessions data
-        console.log('Sessions data received:', response.data.sessions);
-        
-        // For non-current sessions, if the timestamp looks incorrect, 
-        // set it to a more recent time for demo purposes
-        const processedSessions = response.data.sessions.map(session => {
+      
+      // Debug log the sessions data
+      console.log('Sessions data received:', response);
+      
+      if (Array.isArray(response)) {
+        // Process the sessions for display
+        const processedSessions = response.map(session => {
           // If it's not the current session and the timestamp is older than 10 minutes
           if (!session.is_current) {
             // Create a date from a minute ago for testing

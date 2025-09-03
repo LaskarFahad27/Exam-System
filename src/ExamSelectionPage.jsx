@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Clock, Book, Calendar, User, Shield, ChevronRight } from 'lucide-react';
-import { getExamsForUser, startExam, logout } from './utils/api';
+import { getExamsForUser, startExam } from './utils/api';
+import { logout } from './utils/auth';
 import { navigateAndScrollToTop } from './utils/navigation';
 import toastService from './utils/toast.jsx';
 

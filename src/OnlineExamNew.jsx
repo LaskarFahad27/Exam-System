@@ -229,13 +229,13 @@ const OnlineExam = () => {
     if (timeLeft > 0 && !examCompleted && !submitting) {
       const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
       
-      // Show warning when time is running low
+      // Show warning when time is running low using the special timer warning
       if (timeLeft === 60) {
-        toastService.warning('1 minute remaining in this section!');
+        toastService.timerWarning('1 minute remaining in this section!');
       } else if (timeLeft === 30) {
-        toastService.warning('30 seconds remaining in this section!');
+        toastService.timerWarning('30 seconds remaining in this section!');
       } else if (timeLeft === 10) {
-        toastService.warning('10 seconds remaining! Section will be auto-submitted soon.');
+        toastService.timerWarning('10 seconds remaining! Section will be auto-submitted soon.');
       }
       
       return () => clearTimeout(timer);
