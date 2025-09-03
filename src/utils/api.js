@@ -1,25 +1,71 @@
 export const BACKEND_URL = "http://172.232.104.77:5000/api";
 
-// .................Fetch all exams..................................
+//............Search Question Sets.....................
 
-export async function getExams() {
+export async function searchQuestionSets(searchTerm = '', subject = '') {
   const adminToken = localStorage.getItem("adminToken");
-  if (!adminToken) throw new Error("Authentication required");
+
+  if (!adminToken) {
+    throw new Error("Authentication required");
+  }
 
   try {
-    const response = await fetch(`${BACKEND_URL}/exams`, {
+    // Build query parameters
+    const params = new URLSearchParams();
+    if (searchTerm) params.append('search', searchTerm);
+    if (subject) params.append('subject', subject);
+    
+    const queryString = params.toString() ? `?${params.toString()}` : '';
+    
+    const response = await fetch(`${BACKEND_URL}/question-sets${queryString}`, {
       method: "GET",
       headers: { 
         "Content-Type": "application/json",
         "Authorization": `Bearer ${adminToken}`
+      }
+    });
+    
+    const data = await response.json();
+    
+    if (response.ok) {
+      console.log("Question sets searched successfully:", data);
+      return { success: true, data: data.data || data };
+    }
+    else {
+      console.error("API error response:", data);
+      throw new Error(data.message || "Failed to search question sets");
+    }
+  } catch (error) {
+    console.error("Error searching question sets:", error);
+    throw error;
+  }
+}
+
+// .................Fetch all exams..................................
+
+export async function getExams() {
+  
+    const adminToken = localStorage.getItem("adminToken");
+
+  if (!adminToken) {
+    throw new Error("Authentication required");
+  }
+
+  try {
+    const response = await fetch(`${BACKEND_URL}/exams`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json",
+                  "Authorization": `Bearer ${adminToken}`
       },
     });
+    
     const data = await response.json();
-
+    
     if (response.ok) {
       console.log("Exams fetched successfully:", data);
       return data;
-    } else {
+    }
+    else {
       throw new Error(data.message || "Failed to fetch exams");
     }
   } catch (error) {
@@ -31,23 +77,28 @@ export async function getExams() {
 //..............Fetch exams for user..................
 
 export async function getExamsForUser() {
-  const studentToken = localStorage.getItem("studentToken");
-  if (!studentToken) throw new Error("Authentication required");
+
+    const studentToken = localStorage.getItem("studentToken");
+
+  if (!studentToken) {
+    throw new Error("Authentication required");
+  }
 
   try {
     const response = await fetch(`${BACKEND_URL}/exams`, {
       method: "GET",
-      headers: { 
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${studentToken}`
+      headers: { "Content-Type": "application/json",
+                  "Authorization": `Bearer ${studentToken}`
       },
     });
+    
     const data = await response.json();
-
+    
     if (response.ok) {
       console.log("Exams fetched successfully for student:", data);
       return data;
-    } else {
+    }
+    else {
       throw new Error(data.message || "Failed to fetch exams for student");
     }
   } catch (error) {
@@ -59,24 +110,33 @@ export async function getExamsForUser() {
 //..............Create a new exam..........................
 
 export async function createExam(title, description) {
-  const adminToken = localStorage.getItem("adminToken");
-  if (!adminToken) throw new Error("Authentication required");
+  
+    const adminToken = localStorage.getItem("adminToken");
+
+  if (!adminToken) {
+    throw new Error("Authentication required");
+  }
 
   try {
+
     const response = await fetch(`${BACKEND_URL}/exams/shell`, {
       method: "POST",
-      headers: { 
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${adminToken}`
+      headers: { "Content-Type": "application/json",
+                  "Authorization": `Bearer ${adminToken}`
       },
-      body: JSON.stringify({ title, description }),
+      body: JSON.stringify({
+        title,
+        description
+      }),
     });
+    
     const data = await response.json();
-
+    
     if (response.ok) {
       console.log("Exams created successfully:", data);
       return data;
-    } else {
+    }
+    else {
       throw new Error(data.message || "Failed to create exams");
     }
   } catch (error) {
@@ -88,15 +148,20 @@ export async function createExam(title, description) {
 //..............Create a new section..........................
 
 export async function createSection(name, examId, time, order) {
-  const adminToken = localStorage.getItem("adminToken");
-  if (!adminToken) throw new Error("Authentication required");
+  
+    const adminToken = localStorage.getItem("adminToken");
+
+  if (!adminToken) {
+    throw new Error("Authentication required");
+  }
 
   try {
-    const response = await fetch(`${BACKEND_URL}/exams/${examId}/sections`, {
+
+    const response = await fetch(`${BACKEND_URL}/exams/${examId}/sections`,
+       {
       method: "POST",
-      headers: { 
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${adminToken}`
+      headers: { "Content-Type": "application/json",
+                  "Authorization": `Bearer ${adminToken}`
       },
       body: JSON.stringify({
         name,
@@ -104,12 +169,14 @@ export async function createSection(name, examId, time, order) {
         sequence_order: order
       }),
     });
+    
     const data = await response.json();
-
+    
     if (response.ok) {
       console.log("Section created successfully:", data);
       return data;
-    } else {
+    }
+    else {
       throw new Error(data.message || "Failed to create section");
     }
   } catch (error) {
@@ -125,6 +192,12 @@ export async function createQuestions(sectionId, question, type, options, answer
   if (!adminToken) throw new Error("Authentication required");
 
   try {
+    console.log("Creating question with answer index:", answer);
+    
+    // Get the correct answer text from the options array
+    const correctAnswer = typeof answer === 'number' && options[answer] ? options[answer] : answer;
+    console.log("Correct answer being sent to API:", correctAnswer);
+    
     const response = await fetch(`${BACKEND_URL}/exams/sections/${sectionId}/questions`, {
       method: "POST",
       headers: {
@@ -135,11 +208,11 @@ export async function createQuestions(sectionId, question, type, options, answer
         question_text: question,
         question_type: type,
         options: options.map(opt => ({ text: opt })), 
-        correct_answer: answer
+        correct_answer: answer  // Keep as index for consistency
       }),
     });
-    const data = await response.json();
 
+    const data = await response.json();
     if (response.ok) {
       console.log("Question created successfully:", data);
       return data;
@@ -156,7 +229,10 @@ export async function createQuestions(sectionId, question, type, options, answer
 
 export async function updateExamBasicDetails(examId, title, description) {
   const adminToken = localStorage.getItem("adminToken");
-  if (!adminToken) throw new Error("Authentication required");
+
+  if (!adminToken) {
+    throw new Error("Authentication required");
+  }
 
   try {
     const response = await fetch(`${BACKEND_URL}/exams/${examId}/details`, {
@@ -167,12 +243,14 @@ export async function updateExamBasicDetails(examId, title, description) {
       },
       body: JSON.stringify({ title, description })
     });
+    
     const data = await response.json();
-
+    
     if (response.ok) {
       console.log("Exam details updated successfully:", data);
       return { success: true, data };
-    } else {
+    }
+    else {
       throw new Error(data.message || "Failed to update exam details");
     }
   } catch (error) {
@@ -185,7 +263,10 @@ export async function updateExamBasicDetails(examId, title, description) {
 
 export async function toggleExamPublishStatus(examId, publishStatus) {
   const adminToken = localStorage.getItem("adminToken");
-  if (!adminToken) throw new Error("Authentication required");
+
+  if (!adminToken) {
+    throw new Error("Authentication required");
+  }
 
   try {
     const response = await fetch(`${BACKEND_URL}/exams/${examId}/published`, {
@@ -196,12 +277,14 @@ export async function toggleExamPublishStatus(examId, publishStatus) {
       },
       body: JSON.stringify({ published: publishStatus ? 1 : 0 })
     });
+    
     const data = await response.json();
-
+    
     if (response.ok) {
       console.log("Exam publish status updated successfully:", data);
       return { success: true, data };
-    } else {
+    }
+    else {
       throw new Error(data.message || "Failed to update exam publish status");
     }
   } catch (error) {
@@ -213,33 +296,44 @@ export async function toggleExamPublishStatus(examId, publishStatus) {
 //..............Delete an exam..........................
 
 export async function dropExam(examId) {
-  const adminToken = localStorage.getItem("adminToken");
-  if (!adminToken) throw new Error("Authentication required");
+  
+    const adminToken = localStorage.getItem("adminToken");
+
+  if (!adminToken) {
+    throw new Error("Authentication required");
+  }
 
   try {
-    const response = await fetch(`${BACKEND_URL}/exams/${examId}`, {
+
+    const response = await fetch(`${BACKEND_URL}/exams/${examId}`,
+       {
       method: "DELETE",
-      headers: { 
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${adminToken}`
+      headers: { "Content-Type": "application/json",
+                  "Authorization": `Bearer ${adminToken}`
       },
     });
+    
     const data = await response.json();
-
+    
     if (response.ok) {
       console.log("Exam deleted successfully:", data);
       return data;
-    } else {
+    }
+    else {
+      // Enhanced error handling for foreign key constraints
       if (data.message && data.message.includes('foreign key constraint')) {
-        throw new Error("Cannot delete exam: Students have already taken this exam.");
+        throw new Error("Cannot delete exam: Students have already taken this exam. Please contact system administrator to handle exam deletion with existing student records.");
       }
       throw new Error(data.message || "Failed to delete exam");
     }
   } catch (error) {
     console.error("Error deleting exam:", error);
+    
+    // Handle different types of errors
     if (error.message.includes('foreign key constraint')) {
-      throw new Error("Cannot delete exam: This exam has student attempts.");
+      throw new Error("Cannot delete exam: This exam has student attempts. Please contact system administrator.");
     }
+    
     throw error;
   }
 }
@@ -248,9 +342,13 @@ export async function dropExam(examId) {
 
 export async function forceDropExam(examId) {
   const adminToken = localStorage.getItem("adminToken");
-  if (!adminToken) throw new Error("Authentication required");
+
+  if (!adminToken) {
+    throw new Error("Authentication required");
+  }
 
   try {
+    // Try to force delete (backend should handle cascading)
     const response = await fetch(`${BACKEND_URL}/exams/${examId}/force-delete`, {
       method: "DELETE",
       headers: { 
@@ -258,12 +356,14 @@ export async function forceDropExam(examId) {
         "Authorization": `Bearer ${adminToken}`
       },
     });
+    
     const data = await response.json();
-
+    
     if (response.ok) {
       console.log("Exam force deleted successfully:", data);
       return data;
-    } else {
+    }
+    else {
       throw new Error(data.message || "Failed to force delete exam");
     }
   } catch (error) {
@@ -276,7 +376,9 @@ export async function forceDropExam(examId) {
 
 export async function deleteQuestion(questionId) {
   const adminToken = localStorage.getItem("adminToken");
-  if (!adminToken) throw new Error("Authentication required");
+  if (!adminToken) {
+    throw new Error("Authentication required");
+  }
 
   try {
     const response = await fetch(`${BACKEND_URL}/exams/questions/${questionId}`, {
@@ -286,8 +388,8 @@ export async function deleteQuestion(questionId) {
         "Authorization": `Bearer ${adminToken}`
       }
     });
-    const data = await response.json();
 
+    const data = await response.json();
     if (response.ok) {
       console.log("Question deleted successfully:", data);
       return data;
@@ -304,7 +406,9 @@ export async function deleteQuestion(questionId) {
 
 export async function deleteSection(sectionId) {
   const adminToken = localStorage.getItem("adminToken");
-  if (!adminToken) throw new Error("Authentication required");
+  if (!adminToken) {
+    throw new Error("Authentication required");
+  }
 
   try {
     const response = await fetch(`${BACKEND_URL}/exams/sections/${sectionId}`, {
@@ -314,8 +418,8 @@ export async function deleteSection(sectionId) {
         "Authorization": `Bearer ${adminToken}`
       }
     });
-    const data = await response.json();
 
+    const data = await response.json();
     if (response.ok) {
       console.log("Section deleted successfully:", data);
       return data;
@@ -331,23 +435,28 @@ export async function deleteSection(sectionId) {
 //..............Fetch exams by ID..........................
 
 export async function fetchExamsById(examId) {
-  const adminToken = localStorage.getItem("adminToken");
-  if (!adminToken) throw new Error("Authentication required");
+
+    const adminToken = localStorage.getItem("adminToken");
+
+  if (!adminToken) {
+    throw new Error("Authentication required");
+  }
 
   try {
     const response = await fetch(`${BACKEND_URL}/exams/${examId}`, {
       method: "GET",
-      headers: { 
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${adminToken}`
+      headers: { "Content-Type": "application/json",
+                  "Authorization": `Bearer ${adminToken}`
       },
     });
+
     const data = await response.json();
 
     if (response.ok) {
       console.log("Exam fetched successfully:", data);
       return data;
-    } else {
+    }
+    else {
       throw new Error(data.message || "Failed to fetch exam");
     }
   } catch (error) {
@@ -360,7 +469,10 @@ export async function fetchExamsById(examId) {
 
 export async function startExam(examId) {
   const studentToken = localStorage.getItem("studentToken");
-  if (!studentToken) throw new Error("Authentication required");
+
+  if (!studentToken) {
+    throw new Error("Authentication required");
+  }
 
   try {
     const response = await fetch(`${BACKEND_URL}/user-exams/${examId}/start`, {
@@ -370,12 +482,14 @@ export async function startExam(examId) {
         "Authorization": `Bearer ${studentToken}`
       },
     });
+
     const data = await response.json();
 
     if (response.ok) {
       console.log("Exam started successfully:", data);
       return data;
-    } else {
+    }
+    else {
       throw new Error(data.message || "Failed to start exam");
     }
   } catch (error) {
@@ -388,7 +502,10 @@ export async function startExam(examId) {
 
 export async function getNextSection(userExamId) {
   const studentToken = localStorage.getItem("studentToken");
-  if (!studentToken) throw new Error("Authentication required");
+
+  if (!studentToken) {
+    throw new Error("Authentication required");
+  }
 
   try {
     const response = await fetch(`${BACKEND_URL}/user-exams/${userExamId}/next-section`, {
@@ -398,12 +515,14 @@ export async function getNextSection(userExamId) {
         "Authorization": `Bearer ${studentToken}`
       },
     });
+
     const data = await response.json();
 
     if (response.ok) {
       console.log("Next section fetched successfully:", data);
       return data;
-    } else {
+    }
+    else {
       throw new Error(data.message || "Failed to fetch next section");
     }
   } catch (error) {
@@ -416,7 +535,10 @@ export async function getNextSection(userExamId) {
 
 export async function submitSectionAnswers(userExamId, sectionId, answers) {
   const studentToken = localStorage.getItem("studentToken");
-  if (!studentToken) throw new Error("Authentication required");
+
+  if (!studentToken) {
+    throw new Error("Authentication required");
+  }
 
   const payload = { answers };
   console.log('API Request:', {
@@ -434,12 +556,14 @@ export async function submitSectionAnswers(userExamId, sectionId, answers) {
       },
       body: JSON.stringify(payload),
     });
+
     const data = await response.json();
 
     if (response.ok) {
       console.log("Section answers submitted successfully:", data);
       return data;
-    } else {
+    }
+    else {
       throw new Error(data.message || "Failed to submit answers");
     }
   } catch (error) {
@@ -452,7 +576,10 @@ export async function submitSectionAnswers(userExamId, sectionId, answers) {
 
 export async function getExamResults(examId) {
   const studentToken = localStorage.getItem("studentToken");
-  if (!studentToken) throw new Error("Authentication required");
+
+  if (!studentToken) {
+    throw new Error("Authentication required");
+  }
 
   try {
     const response = await fetch(`${BACKEND_URL}/scores/user-exams/${examId}/details`, {
@@ -462,12 +589,14 @@ export async function getExamResults(examId) {
         "Authorization": `Bearer ${studentToken}`
       },
     });
+
     const data = await response.json();
 
     if (response.ok) {
       console.log("Exam results fetched successfully:", data);
       return data;
-    } else {
+    }
+    else {
       throw new Error(data.message || "Failed to fetch exam results");
     }
   } catch (error) {
@@ -476,30 +605,37 @@ export async function getExamResults(examId) {
   }
 }
 
-//............Create Question Set..............
+//..............Create Question Set..............
 
 export async function createQuestionSet(subject, setName) {
-  const adminToken = localStorage.getItem("adminToken");
-  if (!adminToken) throw new Error("Authentication required");
+  
+    const adminToken = localStorage.getItem("adminToken");
+
+  if (!adminToken) {
+    throw new Error("Authentication required");
+  }
 
   try {
-    const response = await fetch(`${BACKEND_URL}/question-sets`, {
+
+    const response = await fetch(`${BACKEND_URL}/question-sets`,
+       {
       method: "POST",
-      headers: { 
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${adminToken}`
+      headers: { "Content-Type": "application/json",
+                  "Authorization": `Bearer ${adminToken}`
       },
       body: JSON.stringify({
         subject_name: subject,
         set_name: setName
       }),
     });
+    
     const data = await response.json();
-
+    
     if (response.ok) {
       console.log("Set created successfully:", data);
       return data;
-    } else {
+    }
+    else {
       throw new Error(data.message || "Failed to create set");
     }
   } catch (error) {
@@ -508,26 +644,33 @@ export async function createQuestionSet(subject, setName) {
   }
 }
 
-//............Fetch Question Sets..............
+//............Fetch Question Sets.....................
 
 export async function fetchQuestionSet(subject, setName) {
-  const adminToken = localStorage.getItem("adminToken");
-  if (!adminToken) throw new Error("Authentication required");
+  
+    const adminToken = localStorage.getItem("adminToken");
+
+  if (!adminToken) {
+    throw new Error("Authentication required");
+  }
 
   try {
-    const response = await fetch(`${BACKEND_URL}/question-sets`, {
+
+    const response = await fetch(`${BACKEND_URL}/question-sets`,
+       {
       method: "GET",
-      headers: { 
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${adminToken}`
+      headers: { "Content-Type": "application/json",
+                  "Authorization": `Bearer ${adminToken}`
       },
     });
+    
     const data = await response.json();
-
+    
     if (response.ok) {
       console.log("Set fetched successfully:", data);
       return data;
-    } else {
+    }
+    else {
       throw new Error(data.message || "Failed to fetch sets");
     }
   } catch (error) {
@@ -536,156 +679,275 @@ export async function fetchQuestionSet(subject, setName) {
   }
 }
 
-//............User Sessions Management..............
+//............Add Question to Question Set.....................
 
-/**
- * Get all active sessions for the current user
- */
-export async function getUserSessions() {
-  const studentToken = localStorage.getItem("studentToken");
-  if (!studentToken) throw new Error("Authentication required");
+export async function addQuestionToSet(questionSetId, questionText, questionType, options, correctAnswer) {
+  
+  const adminToken = localStorage.getItem("adminToken");
 
-  try {
-    const response = await fetch(`${BACKEND_URL}/auth/sessions`, {
-      method: "GET",
-      headers: { 
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${studentToken}`
-      },
-    });
-    const data = await response.json();
+  if (!adminToken) {
+    throw new Error("Authentication required");
+  }
 
-    if (response.ok) {
-      console.log("User sessions fetched successfully:", data);
-      const clientFetchTime = new Date().toISOString();
-      if (data.data && data.data.sessions) {
-        data.data.sessions = data.data.sessions.map(session => ({
-          ...session,
-          client_fetch_time: clientFetchTime
-        }));
+  // Make sure we have a valid question set ID
+  if (!questionSetId) {
+    throw new Error("Question set ID is required");
+  }
+
+  // Ensure questionSetId is treated as a primitive value, not an object
+  const setId = typeof questionSetId === 'object' ? questionSetId.id : questionSetId;
+
+  // Format options if needed - ensure we have an array of strings
+  let formattedOptions = [];
+  if (Array.isArray(options)) {
+    formattedOptions = options.map(opt => {
+      if (typeof opt === 'object' && opt !== null) {
+        // If the option is an object, try to get a string representation
+        return opt.text || opt.toString() || '';
+      } else {
+        // If it's already a string or primitive, use it directly
+        return String(opt);
       }
-      return data;
+    });
+  } else if (options) {
+    // If options is not an array but exists, make it an array
+    formattedOptions = [String(options)];
+  }
+
+  // Format correct answer - ensure it's a string
+  let formattedAnswer = '';
+  if (correctAnswer !== null && correctAnswer !== undefined) {
+    if (typeof correctAnswer === 'object') {
+      formattedAnswer = correctAnswer.text || correctAnswer.toString() || '';
     } else {
-      throw new Error(data.message || "Failed to fetch user sessions");
+      formattedAnswer = String(correctAnswer);
+    }
+  }
+
+  try {
+    console.log(`Sending request to ${BACKEND_URL}/question-sets/${setId}/questions`);
+    console.log("Request payload:", {
+      question_text: questionText,
+      question_type: questionType,
+      options: formattedOptions,
+      correct_answer: formattedAnswer
+    });
+    
+    // Ensure the URL is correctly formatted
+    const url = `${BACKEND_URL}/question-sets/${setId}/questions`;
+    
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${adminToken}`
+      },
+      body: JSON.stringify({
+        question_text: questionText || '',
+        question_type: questionType || 'mcq',
+        options: formattedOptions,
+        correct_answer: formattedAnswer
+      }),
+    });
+    
+    // Safely parse JSON response
+    let data;
+    try {
+      const text = await response.text();
+      data = text ? JSON.parse(text) : {};
+    } catch (parseError) {
+      console.error("Error parsing JSON response:", parseError);
+      throw new Error(`Failed to parse server response: ${parseError.message}`);
+    }
+    
+    if (response.ok) {
+      console.log("Question added successfully:", data);
+      return { ...data, success: true };
+    }
+    else {
+      console.error("API error response:", data);
+      // Throw a more detailed error message
+      const errorMessage = data.message || 
+                          (data.error ? (typeof data.error === 'string' ? data.error : JSON.stringify(data.error)) : 
+                          "Failed to add question to set");
+      throw new Error(errorMessage);
     }
   } catch (error) {
-    console.error("Error fetching user sessions:", error);
+    console.error("Error adding question:", error);
     throw error;
   }
 }
 
-/**
- * Get the count of active sessions for the current user
- */
-export async function getSessionCount() {
-  const studentToken = localStorage.getItem("studentToken");
-  if (!studentToken) throw new Error("Authentication required");
+//............Remove Question from Question Set.....................
+
+export async function removeQuestionFromSet(questionId) {
+  
+  const adminToken = localStorage.getItem("adminToken");
+
+  if (!adminToken) {
+    throw new Error("Authentication required");
+  }
 
   try {
-    const response = await fetch(`${BACKEND_URL}/auth/sessions`, {
+    // Ensure the ID is not an object
+    const qId = typeof questionId === 'object' && questionId !== null ? questionId.id : questionId;
+    
+    console.log("API Removing question ID:", qId);
+    
+    const response = await fetch(`${BACKEND_URL}/question-sets/questions/${qId}`, {
+      method: "DELETE",
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${adminToken}`
+      }
+    });
+    
+    const data = await response.json();
+    
+    if (response.ok) {
+      console.log("Question removed successfully:", data);
+      return data;
+    }
+    else {
+      console.error("API error response:", data);
+      throw new Error(data.message || "Failed to remove question from set");
+    }
+  } catch (error) {
+    console.error("Error removing question:", error);
+    throw error;
+  }
+}
+
+//............Fetch Questions for a Question Set.....................
+
+export async function fetchQuestionsForSet(questionSetId) {
+  
+  const adminToken = localStorage.getItem("adminToken");
+
+  if (!adminToken) {
+    throw new Error("Authentication required");
+  }
+
+  try {
+    // Ensure the ID is not an object
+    const setId = typeof questionSetId === 'object' && questionSetId !== null ? questionSetId.id : questionSetId;
+    
+    console.log("API Fetching questions for set ID:", setId);
+    
+    const response = await fetch(`${BACKEND_URL}/question-sets/${setId}`, {
       method: "GET",
       headers: { 
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${studentToken}`
-      },
+        "Authorization": `Bearer ${adminToken}`
+      }
     });
+    
     const data = await response.json();
-
+    
     if (response.ok) {
-      return { count: data.data.total || data.data.sessions.length || 0 };
-    } else {
-      throw new Error(data.message || "Failed to fetch session count");
+      console.log("Questions fetched successfully:", data);
+      return data;
+    }
+    else {
+      console.error("API error response:", data);
+      throw new Error(data.message || "Failed to fetch questions for set");
     }
   } catch (error) {
-    console.error("Error fetching session count:", error);
+    console.error("Error fetching questions:", error);
     throw error;
   }
 }
 
-/**
- * Log out from all devices except the current one
- */
-export async function logoutOtherDevices() {
-  const studentToken = localStorage.getItem("studentToken");
-  if (!studentToken) throw new Error("Authentication required");
+//............Edit Question Set.....................
+
+export async function editQuestionSet(questionSetId, subjectName, setName) {
+  const adminToken = localStorage.getItem("adminToken");
+
+  if (!adminToken) {
+    throw new Error("Authentication required");
+  }
 
   try {
-    const response = await fetch(`${BACKEND_URL}/auth/logout-other-devices`, {
-      method: "POST",
+    // Ensure the ID is not an object
+    const setId = typeof questionSetId === 'object' && questionSetId !== null ? questionSetId.id : questionSetId;
+    
+    console.log("API Editing question set with ID:", setId);
+    
+    const response = await fetch(`${BACKEND_URL}/question-sets/${setId}`, {
+      method: "PUT",
       headers: { 
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${studentToken}`
+        "Authorization": `Bearer ${adminToken}`
       },
+      body: JSON.stringify({
+        subject_name: subjectName,
+        set_name: setName
+      })
     });
+    
     const data = await response.json();
-
+    
     if (response.ok) {
-      console.log("Logged out from other devices successfully:", data);
-      return data;
-    } else {
-      throw new Error(data.message || "Failed to logout from other devices");
+      console.log("Question set edited successfully:", data);
+      return { success: true, data };
+    }
+    else {
+      console.error("API error response:", data);
+      throw new Error(data.message || "Failed to edit question set");
     }
   } catch (error) {
-    console.error("Error logging out from other devices:", error);
+    console.error("Error editing question set:", error);
     throw error;
   }
 }
 
-/**
- * Log out from a specific device/session
- */
-export async function logoutSpecificSession(sessionId) {
-  const studentToken = localStorage.getItem("studentToken");
-  if (!studentToken) throw new Error("Authentication required");
+//............Delete Question Set.....................
 
-  try {
-    const response = await fetch(`${BACKEND_URL}/auth/sessions/${sessionId}/logout`, {
-      method: "POST",
-      headers: { 
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${studentToken}`
-      },
-    });
-    const data = await response.json();
+export async function deleteQuestionSet(questionSetId, forceDelete = false) {
+  const adminToken = localStorage.getItem("adminToken");
 
-    if (response.ok) {
-      console.log("Logged out from specific session successfully:", data);
-      return data;
-    } else {
-      throw new Error(data.message || "Failed to logout from specific session");
-    }
-  } catch (error) {
-    console.error("Error logging out from specific session:", error);
-    throw error;
+  if (!adminToken) {
+    throw new Error("Authentication required");
   }
-}
-
-/**
- * Log out the user from the current device/session
- */
-export async function logout() {
-  const studentToken = localStorage.getItem("studentToken");
-  if (!studentToken) throw new Error("Authentication required");
 
   try {
-    const response = await fetch(`${BACKEND_URL}/auth/logout`, {
-      method: "POST",
+    // Ensure the ID is not an object
+    const setId = typeof questionSetId === 'object' && questionSetId !== null ? questionSetId.id : questionSetId;
+    
+    console.log("API Deleting question set with ID:", setId, forceDelete ? "(Force Delete)" : "");
+    
+    // Add force delete parameter if needed
+    const url = forceDelete 
+      ? `${BACKEND_URL}/question-sets/${setId}?force=true` 
+      : `${BACKEND_URL}/question-sets/${setId}`;
+    
+    const response = await fetch(url, {
+      method: "DELETE",
       headers: { 
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${studentToken}`
-      },
+        "Authorization": `Bearer ${adminToken}`
+      }
     });
-    const data = await response.json();
-
+    
+    // If it's a 204 No Content response
+    if (response.status === 204) {
+      console.log("Question set deleted successfully");
+      return { success: true };
+    }
+    
+    // Handle other successful responses
     if (response.ok) {
-      localStorage.removeItem("studentToken");
-      console.log("Logged out successfully:", data);
-      return data;
-    } else {
-      throw new Error(data.message || "Failed to logout");
+      const data = await response.json();
+      console.log("Question set deleted successfully:", data);
+      return { success: true, data };
+    }
+    else {
+      const data = await response.json().catch(() => ({}));
+      console.error("API error response:", data);
+      throw new Error(data.message || "Failed to delete question set");
     }
   } catch (error) {
-    console.error("Error logging out:", error);
+    console.error("Error deleting question set:", error);
     throw error;
   }
 }
