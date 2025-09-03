@@ -206,6 +206,13 @@ const OnlineExam = () => {
       return;
     }
     
+    // Immediately scroll to the top of the page
+    window.scrollTo({
+      top: 0,
+      left: 0,
+      behavior: 'smooth'
+    });
+    
     // Start submission process and mark state first to prevent race conditions
     setSubmitting(true);
     
@@ -237,6 +244,13 @@ const OnlineExam = () => {
       // Submit answers
       await submitSectionAnswers(userExamId, sectionId, formattedAnswers);
       
+      // After successful submission, scroll to top
+      window.scrollTo({
+        top: 0,
+        left: 0,
+        behavior: 'smooth'
+      });
+      
       toastService.warning('Time expired! Section submitted automatically.', { 
         duration: 4000,
         icon: '⏱️'
@@ -247,7 +261,7 @@ const OnlineExam = () => {
         console.log('Auto-submit successful, loading next section...');
         // Clear the submission flag for this section
         clearSectionSubmitted(userExamId, sectionId);
-        // Move to next section
+        // Move to next section without page refresh
         setTimeout(() => {
           loadNextSection();
         }, 1500);
@@ -365,6 +379,13 @@ const OnlineExam = () => {
 
   const loadNextSection = async () => {
     try {
+      // Scroll to top immediately when loading a new section
+      window.scrollTo({
+        top: 0,
+        left: 0,
+        behavior: 'smooth'
+      });
+      
       setLoading(true);
       console.log('Loading next section for userExamId:', userExamId);
       
@@ -399,6 +420,7 @@ const OnlineExam = () => {
         const newAutoSubmitKey = `auto_submit_${userExamId}_${section.id}_triggered`;
         localStorage.removeItem(newAutoSubmitKey);
         
+        // Instead of using navigate, directly update the state
         setCurrentSection(section);
         setQuestions(questions);
         setTimeLeft(section.duration_minutes * 60); // Convert to seconds
@@ -406,6 +428,13 @@ const OnlineExam = () => {
         setTotalSections(total_sections);
         setSectionsCompleted(sections_completed);
         setAnswers({}); // Reset answers for new section
+        
+        // Scroll to top without refreshing the page
+        window.scrollTo({
+          top: 0,
+          left: 0,
+          behavior: 'smooth'
+        });
       }
     } catch (error) {
       console.error('Error loading section:', error);
@@ -446,7 +475,12 @@ const OnlineExam = () => {
     }));
   };
 
-  const handleSubmitSection = async (autoSubmit = false) => {
+  const handleSubmitSection = async (autoSubmit = false, e) => {
+    // Prevent default form submission if event is provided
+    if (e && e.preventDefault) {
+      e.preventDefault();
+    }
+    
     // Add null check for currentSection
     if (!currentSection || !currentSection.id) {
       console.error('No current section available');
@@ -472,6 +506,13 @@ const OnlineExam = () => {
     }
 
     try {
+      // Immediately scroll to the top of the page
+      window.scrollTo({
+        top: 0,
+        left: 0,
+        behavior: 'smooth'
+      });
+      
       setSubmitting(true);
       // Mark this section as being submitted to prevent duplicate submissions
       markSectionSubmitted(userExamId, currentSection.id);
@@ -489,6 +530,13 @@ const OnlineExam = () => {
       });
 
       await submitSectionAnswers(userExamId, currentSection.id, formattedAnswers);
+      
+      // After successful submission, scroll to top
+      window.scrollTo({
+        top: 0,
+        left: 0,
+        behavior: 'smooth'
+      });
       
       if (autoSubmit) {
         toastService.warning('Time expired! Section submitted automatically.', { 
@@ -530,7 +578,6 @@ const OnlineExam = () => {
         } finally {
           setLoadingResults(false);
         }
-        // Remove the duplicate toast message here
       }
     } catch (error) {
       console.error('Error submitting section:', error);
@@ -928,7 +975,16 @@ const OnlineExam = () => {
         {/* Submit Button */}
         <div className="text-center mt-8">
           <button 
-            onClick={() => handleSubmitSection(false)} 
+            onClick={(e) => {
+              e.preventDefault();
+              // Scroll to top immediately for visual feedback
+              window.scrollTo({
+                top: 0,
+                left: 0,
+                behavior: 'smooth'
+              });
+              handleSubmitSection(false, e);
+            }} 
             disabled={submitting || !currentSection}
             className="px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg font-medium text-lg flex items-center justify-center mx-auto space-x-2"
           >
