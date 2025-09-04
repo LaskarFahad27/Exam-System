@@ -1,4 +1,177 @@
-export const BACKEND_URL = "http://172.232.104.77:5000/api";
+export const BACKEND_URL = "http://172.232.104.77:5001/api";
+
+//............Reading Passages.....................
+
+export async function fetchReadingPassage(passageId) {
+  const adminToken = localStorage.getItem("adminToken");
+
+  if (!adminToken) {
+    throw new Error("Authentication required");
+  }
+
+  try {
+    const response = await fetch(`${BACKEND_URL}/reading/passages/${passageId}`, {
+      method: "GET",
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${adminToken}`
+      }
+    });
+    
+    const data = await response.json();
+    
+    if (response.ok) {
+      console.log("Reading passage fetched successfully:", data);
+      return { success: true, data: data.data || data };
+    }
+    else {
+      console.error("API error response:", data);
+      throw new Error(data.message || "Failed to fetch reading passage");
+    }
+  } catch (error) {
+    console.error("Error fetching reading passage:", error);
+    throw error;
+  }
+}
+
+export async function fetchQuestionsForPassage(passageId) {
+  const adminToken = localStorage.getItem("adminToken");
+
+  if (!adminToken) {
+    throw new Error("Authentication required");
+  }
+
+  try {
+    const response = await fetch(`${BACKEND_URL}/reading/passages/${passageId}/questions`, {
+      method: "GET",
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${adminToken}`
+      }
+    });
+    
+    const data = await response.json();
+    
+    if (response.ok) {
+      console.log("Reading passage questions fetched successfully:", data);
+      return { success: true, data: data.data || data };
+    }
+    else {
+      console.error("API error response:", data);
+      throw new Error(data.message || "Failed to fetch reading passage questions");
+    }
+  } catch (error) {
+    console.error("Error fetching reading passage questions:", error);
+    throw error;
+  }
+}
+
+export async function createReadingPassage(passageText, wordCount) {
+  const adminToken = localStorage.getItem("adminToken");
+
+  if (!adminToken) {
+    throw new Error("Authentication required");
+  }
+
+  try {
+    const response = await fetch(`${BACKEND_URL}/reading/passages`, {
+      method: "POST",
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${adminToken}`
+      },
+      body: JSON.stringify({
+        title: wordCount,
+        passage_text: passageText
+      }),
+    });
+    
+    const data = await response.json();
+    
+    if (response.ok) {
+      console.log("Reading passage created successfully:", data);
+      return { success: true, data: data.data || data };
+    }
+    else {
+      console.error("API error response:", data);
+      throw new Error(data.message || "Failed to create reading passage");
+    }
+  } catch (error) {
+    console.error("Error creating reading passage:", error);
+    throw error;
+  }
+}
+
+export async function addQuestionToReadingPassage(setId,passageId, questionText, options, correctAnswerText) {
+  const adminToken = localStorage.getItem("adminToken");
+
+  if (!adminToken) {
+    throw new Error("Authentication required");
+  }
+
+  try {
+    const response = await fetch(`${BACKEND_URL}/question-sets/${setId}/questions`, {
+      method: "POST",
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${adminToken}`
+      },
+      body: JSON.stringify({
+        question_text: questionText,
+        question_type: "reading_question",
+        options: options,
+        correct_answer: correctAnswerText,
+        passage_id: passageId
+      }),
+    });
+    
+    const data = await response.json();
+    
+    if (response.ok) {
+      console.log("Question added to reading passage successfully:", data);
+      return { success: true, data: data.data || data };
+    }
+    else {
+      console.error("API error response:", data);
+      throw new Error(data.message || "Failed to add question to reading passage");
+    }
+  } catch (error) {
+    console.error("Error adding question to reading passage:", error);
+    throw error;
+  }
+}
+
+export async function removeQuestionFromPassage(questionId) {
+  const adminToken = localStorage.getItem("adminToken");
+
+  if (!adminToken) {
+    throw new Error("Authentication required");
+  }
+
+  try {
+    const response = await fetch(`${BACKEND_URL}/reading/questions/${questionId}`, {
+      method: "DELETE",
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${adminToken}`
+      }
+    });
+    
+    const data = await response.json();
+    
+    if (response.ok) {
+      console.log("Question removed from reading passage successfully:", data);
+      return { success: true, data: data.data || data };
+    }
+    else {
+      console.error("API error response:", data);
+      throw new Error(data.message || "Failed to remove question from reading passage");
+    }
+  } catch (error) {
+    console.error("Error removing question from reading passage:", error);
+    throw error;
+  }
+}
 
 //............Search Question Sets.....................
 

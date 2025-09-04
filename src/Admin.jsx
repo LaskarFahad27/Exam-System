@@ -1,9 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from "react-router-dom";
-import { Users, BookOpen, Plus, Edit3, Trash2, Eye, EyeOff, GraduationCap, FileText, Calculator, Book, PenTool, X, ScrollText, CircuitBoard, FlaskConical, Stethoscope, UserCircle2, Calendar, Search } from 'lucide-react';
+import { Users, BookOpen, Plus, Edit3, Trash2, Eye, EyeOff, GraduationCap, FileText, Calculator, Book, PenTool, X, 
+         ScrollText, CircuitBoard, FlaskConical, Stethoscope, UserCircle2, Calendar, Search, ImagePlus } from 'lucide-react';
 import './components/Tooltip.css';
 import toastService from './utils/toast.jsx';
-import { BACKEND_URL } from './utils/api';
+import { 
+  BACKEND_URL, 
+  fetchReadingPassage as apiGetReadingPassage,
+  fetchQuestionsForPassage as apiGetPassageQuestions,
+  createReadingPassage,
+  addQuestionToReadingPassage,
+  removeQuestionFromPassage
+} from './utils/api';
 import { getExams, createExam, createSection, createQuestions, dropExam, forceDropExam, fetchExamsById, 
         deleteQuestion, deleteSection, toggleExamPublishStatus, updateExamBasicDetails, createQuestionSet, 
         fetchQuestionSet, addQuestionToSet, removeQuestionFromSet, fetchQuestionsForSet, searchQuestionSets,
@@ -42,6 +50,13 @@ const AdminPanel = () => {
   const [loadingEditQuestionSet, setLoadingEditQuestionSet] = useState(false);
   const [loadingDeleteQuestionSet, setLoadingDeleteQuestionSet] = useState({});
   const [showDeleteQuestionSetConfirm, setShowDeleteQuestionSetConfirm] = useState(false);
+  
+  // Reading passage specific states
+  const [readingPassage, setReadingPassage] = useState('');
+  const [readingPassageData, setReadingPassageData] = useState(null);
+  const [questionsForPassage, setQuestionsForPassage] = useState([]);
+  const [loadingPassage, setLoadingPassage] = useState(false);
+  const [loadingRemovePassageQuestion, setLoadingRemovePassageQuestion] = useState({});
   const [questionSetToDelete, setQuestionSetToDelete] = useState(null);
   
   // Ref for debouncing the search
@@ -80,6 +95,11 @@ const AdminPanel = () => {
     setQuestionOptions(['', '', '', '']);
     setCorrectOption(null);
     setMathQuestionForm(null);
+    setReadingPassage('');
+    setReadingPassageData(null);
+    setQuestionsForPassage([]);
+    setLoadingPassage(false);
+    setLoadingRemovePassageQuestion({});
     setQuestionModalBank({
       english: [],
       math: [],
@@ -88,6 +108,37 @@ const AdminPanel = () => {
       chemistry: [],
       biology: [],
     });
+  };
+
+  // Function to fetch a specific reading passage by ID
+  const fetchReadingPassage = async (passageId) => {
+    try {
+      const adminToken = localStorage.getItem("adminToken");
+      if (!adminToken) {
+        throw new Error("Authentication required");
+      }
+      
+      const response = await fetch(`${BACKEND_URL}/reading/passages/${passageId}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${adminToken}`
+        }
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok && data.success) {
+        console.log("Fetched passage:", data);
+        return data;
+      } else {
+        throw new Error(data.message || 'Failed to fetch reading passage');
+      }
+    } catch (error) {
+      console.error("Error fetching reading passage:", error);
+      toastService.error(`Failed to fetch reading passage: ${error.message}`);
+      return null;
+    }
   };
 
   // Add question for current subject
@@ -377,15 +428,88 @@ const AdminPanel = () => {
       toastService.error('Failed to create question set');
     }
   };
-
-  const handleAddQuestionButtonClick = () => {
-    // Make sure we have all required parameters
-    if (!activeQuestionSetData?.id) {
-      toastService.error('No active question set selected');
+  
+  const handleCreateReadingPassage = async () => {
+    if (!readingPassage.trim()) {
+      toastService.error('Please enter a reading passage');
       return;
     }
     
-    if (activeQuestionSubject === 'math') {
+    try {
+      setLoadingPassage(true);
+      
+      // Extract title from the first three words of the passage
+      const passageWords = readingPassage.trim().split(/\s+/);
+      const title = passageWords.slice(0, 3).join(' ') + '...';
+      const wordCount = passageWords.length;
+      
+      // Use the API function from utils/api.js
+      const response = await createReadingPassage(readingPassage, wordCount);
+      
+      if (response.success) {
+        console.log("Reading passage created:", response.data);
+        toastService.success('Reading passage added successfully!');
+        
+        // Store passage data for adding questions
+        // The API returns the passage object inside data.passage
+        setReadingPassageData(response.data.passage);
+        // Initialize empty questions array for this new passage
+        setQuestionsForPassage([]);
+      } else {
+        throw new Error('Failed to create reading passage');
+      }
+    } catch (error) {
+      console.error("Error creating reading passage:", error);
+      toastService.error(`Failed to create reading passage: ${error.message}`);
+    } finally {
+      setLoadingPassage(false);
+    }
+  };
+
+  const handleAddQuestionButtonClick = () => {
+    if (activeQuestionSubject === 'reading' && readingPassageData) {
+      // For reading subject with a reading passage
+      if (!questionInput || questionInput.trim() === '') {
+        toastService.error('Question text is required');
+        return;
+      }
+      
+      if (questionOptions.some(opt => !opt)) {
+        toastService.error('All options must be filled');
+        return;
+      }
+      
+      if (correctOption === null) {
+        toastService.error('Please select a correct answer');
+        return;
+      }
+      
+      // Handle reading passage questions
+      console.log("Reading passage data for question:", readingPassageData);
+      
+      if (!readingPassageData || !readingPassageData.id) {
+        toastService.error('Reading passage ID is missing. Please try again.');
+        return;
+      }
+      
+      if (!activeQuestionSetData || !activeQuestionSetData.id) {
+        toastService.error('No active question set selected. Please create or select a question set first.');
+        return;
+      }
+      
+      handleAddQuestionToReadingPassage(
+        readingPassageData.id,
+        questionInput,
+        questionOptions,
+        correctOption
+      );
+    } else if (activeQuestionSubject === 'math') {
+      // Make sure we have all required parameters
+      if (!activeQuestionSetData?.id) {
+        toastService.error('No active question set selected');
+        return;
+      }
+      
       // For math, we need to check if the user has created a question in the math form
       if (!mathQuestionForm) {
         toastService.error('Please create a math question first');
@@ -422,6 +546,12 @@ const AdminPanel = () => {
       );
     } else {
       // For other subjects
+      // Make sure we have all required parameters
+      if (!activeQuestionSetData?.id) {
+        toastService.error('No active question set selected');
+        return;
+      }
+      
       if (!questionInput || questionInput.trim() === '') {
         toastService.error('Question text is required');
         return;
@@ -496,6 +626,170 @@ const AdminPanel = () => {
     if (!showQuestionSetSearch) {
       // When opening, perform an initial search
       handleSearchQuestionSets('', activeSection);
+    }
+  };
+
+  // Function to fetch questions for a specific reading passage
+  const fetchQuestionsForPassage = async (passageId) => {
+    try {
+      setLoadingQuestions(true);
+      
+      // Use the API function from utils/api.js
+      const response = await apiGetPassageQuestions(passageId);
+      
+      if (response.success) {
+        setQuestionsForPassage(response.data);
+      } else {
+        throw new Error('Failed to fetch questions for passage');
+      }
+    } catch (error) {
+      console.error("Error fetching passage questions:", error);
+      toastService.error(error.message || 'Failed to fetch passage questions');
+    } finally {
+      setLoadingQuestions(false);
+    }
+  };
+  
+  // Function to fetch a specific reading passage by ID
+  const fetchReadingPassageById = async (passageId) => {
+    try {
+      // Use the API function from utils/api.js
+      const response = await apiGetReadingPassage(passageId);
+      
+      if (response.success) {
+        setReadingPassageData(response.data);
+        // After setting the passage data, fetch its questions
+        await fetchQuestionsForPassage(passageId);
+      } else {
+        throw new Error('Failed to fetch reading passage');
+      }
+    } catch (error) {
+      console.error("Error fetching reading passage:", error);
+      toastService.error(error.message || 'Failed to fetch reading passage');
+    }
+  };
+
+  // Function to fetch questions for a set
+  const fetchQuestionsForSet = async (setId) => {
+    try {
+      setLoadingQuestions(true);
+      
+      const response = await fetch(`${BACKEND_URL}/question-sets/${setId}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem("adminToken")}`
+        }
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok && data.success) {
+        setQuestionsForSet(data.data.questions || []);
+        return data;
+      } else {
+        throw new Error(data.message || 'Failed to fetch questions');
+      }
+    } catch (error) {
+      console.error("Error fetching questions:", error);
+      toastService.error(`Failed to fetch questions: ${error.message}`);
+      setQuestionsForSet([]);
+      return null;
+    } finally {
+      setLoadingQuestions(false);
+    }
+  };
+  
+  // Add question to a reading passage
+  // Function to remove a question from a reading passage
+  const handleRemoveQuestionFromPassage = async (questionId) => {
+    try {
+      setLoadingRemovePassageQuestion(prev => ({ ...prev, [questionId]: true }));
+      
+      // Use the API function from utils/api.js
+      const response = await removeQuestionFromPassage(questionId);
+      
+      if (response.success) {
+        toastService.success('Question removed successfully');
+        // Update the local state by filtering out the removed question
+        setQuestionsForPassage(prev => prev.filter(q => q.id !== questionId));
+      } else {
+        throw new Error('Failed to remove question');
+      }
+    } catch (error) {
+      console.error("Error removing question:", error);
+      toastService.error(error.message || 'Failed to remove question');
+    } finally {
+      setLoadingRemovePassageQuestion(prev => ({ ...prev, [questionId]: false }));
+    }
+  };
+
+  const handleAddQuestionToReadingPassage = async (passageId, questionText, options, correctAnswer) => {
+    console.log("Adding question to reading passage:", passageId);
+    console.log("Question text:", questionText);
+    console.log("Options:", options);
+    console.log("Correct answer:", correctAnswer);
+    
+    // Validate inputs
+    if (!questionText || questionText.trim() === '') {
+      toastService.error('Question text is required');
+      return { success: false, error: 'Question text is required' };
+    }
+    
+    if (!options || !Array.isArray(options) || options.length === 0) {
+      toastService.error('Options are required');
+      return { success: false, error: 'Options are required' };
+    }
+    
+    if (correctAnswer === undefined || correctAnswer === null) {
+      toastService.error('Correct answer is required');
+      return { success: false, error: 'Correct answer is required' };
+    }
+
+    // We need a question set to associate this reading passage question with
+    if (!activeQuestionSetData?.id) {
+      toastService.error('Please create or select a question set first');
+      return { success: false, error: 'Question set ID is required' };
+    }
+    
+    try {
+      setLoadingAddSetQuestion(true);
+      
+      // Format the options for the API
+      const formattedOptions = options.map(opt => String(opt));
+      const correctAnswerText = formattedOptions[correctAnswer];
+      
+      // Use the API function that requires setId
+      const response = await addQuestionToReadingPassage(
+        activeQuestionSetData.id, // setId - required by updated API
+        passageId,
+        questionText,
+        formattedOptions,
+        correctAnswerText
+      );
+      
+      if (response.success) {
+        console.log("Question added to reading passage:", response.data);
+        toastService.success('Question added to reading passage');
+        
+        // Refresh the questions list
+        await fetchQuestionsForPassage(passageId);
+        
+        // Reset the question form
+        setQuestionInput('');
+        setQuestionOptions(['', '', '', '']);
+        setCorrectOption(null);
+        
+        return { success: true, data: response.data };
+      } else {
+        throw new Error('Failed to add question to reading passage');
+      }
+    } catch (error) {
+      console.error("Error adding question to reading passage:", error);
+      toastService.error(`Failed to add question: ${error.message}`);
+      return { success: false, error: error.message };
+    } finally {
+      setLoadingAddSetQuestion(false);
     }
   };
 
@@ -583,13 +877,42 @@ const AdminPanel = () => {
     
     try {
       setLoadingAddSetQuestion(true);
-      const response = await addQuestionToSet(
-        questionSetId, 
-        questionText, 
-        questionType, 
-        formattedOptions, 
-        formattedAnswer
-      );
+      
+      let response;
+      
+      // Handle adding questions to reading passage differently
+      if (activeQuestionSubject === 'reading' && activePassageData) {
+        // For reading questions, add them to the passage
+        const adminToken = localStorage.getItem("adminToken");
+        if (!adminToken) {
+          throw new Error("Authentication required");
+        }
+        
+        const responseData = await fetch(`${BACKEND_URL}/reading/passages/${activePassageData.id}/questions`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${adminToken}`
+          },
+          body: JSON.stringify({
+            question_text: questionText,
+            options: formattedOptions,
+            correct_answer: formattedAnswer
+          }),
+        });
+        
+        response = await responseData.json();
+        
+      } else {
+        // Regular question set addition
+        response = await addQuestionToSet(
+          questionSetId, 
+          questionText, 
+          questionType, 
+          formattedOptions, 
+          formattedAnswer
+        );
+      }
       
       if (response && response.success) {
         // Refresh the questions list
@@ -1796,7 +2119,18 @@ const AdminPanel = () => {
                   ) : (
                     <>
                       <div>
-                        <label className="block text-gray-700 text-sm font-medium mb-2">Question</label>
+
+                         <div className="flex justify-between w-full">
+                            <div className="flex-1 flex justify-start">
+                          <label className="block text-gray-700 text-sm font-medium mb-2">Question</label>
+                          </div>
+                          <div className="flex-1 flex justify-end text-gray-500 size-sm">
+                            <input id="qstnImg" type="file" className="hidden" />
+                              <label htmlFor="qstnImg">
+                                <ImagePlus className="w-5 h-5 hover:text-blue-500 transition-colors"/>
+                              </label>
+                            </div>
+                          </div>
                         <textarea
                           value={questionInput}
                           onChange={e => setQuestionInput(e.target.value)}
@@ -2210,7 +2544,7 @@ const AdminPanel = () => {
             </div>
           ) : null}
           
-          <MCQMaker activeSection={activeSection} addQuestion={addQuestion} />
+         {/* <MCQMaker activeSection={activeSection} addQuestion={addQuestion} /> */}
         </div>
 
         <QuestionsList
@@ -2333,7 +2667,7 @@ const AdminPanel = () => {
             </div>
           ) : null}
           
-          <MathMCQMaker activeSection={activeSection} addQuestion={addQuestion} />
+          {/* <MathMCQMaker activeSection={activeSection} addQuestion={addQuestion} /> */}
         </div>
          
         <MathQuestionsList
@@ -2457,7 +2791,7 @@ const AdminPanel = () => {
             </div>
           ) : null}
           
-          <MCQMaker activeSection={activeSection} addQuestion={addQuestion} />
+          {/* <MCQMaker activeSection={activeSection} addQuestion={addQuestion} /> */}
         </div>
         <QuestionsList
           activeSection={activeSection}
@@ -2579,7 +2913,7 @@ const AdminPanel = () => {
             </div>
           ) : null}
           
-          <MCQMaker activeSection={activeSection} addQuestion={addQuestion} />
+          {/* <MCQMaker activeSection={activeSection} addQuestion={addQuestion} /> */}
         </div>
         <QuestionsList
           activeSection={activeSection}
@@ -2701,7 +3035,7 @@ const AdminPanel = () => {
             </div>
           ) : null}
           
-          <MCQMaker activeSection={activeSection} addQuestion={addQuestion} />
+          {/* <MCQMaker activeSection={activeSection} addQuestion={addQuestion} /> */}
         </div>
         <QuestionsList
           activeSection={activeSection}
@@ -2839,7 +3173,7 @@ const AdminPanel = () => {
             </div>
           ) : null}
           
-          <MCQMaker activeSection={activeSection} addQuestion={addQuestion} />
+          {/* <MCQMaker activeSection={activeSection} addQuestion={addQuestion} /> */}
         </div>
         <QuestionsList
           activeSection={activeSection}
@@ -3083,6 +3417,9 @@ const AdminPanel = () => {
                     setActiveQuestionSubject('');
                     setActiveQuestionSetData(null);
                     setQuestionsForSet([]);
+                    setReadingPassage('');
+                    setReadingPassageData(null);
+                    setQuestionsForPassage([]);
                     resetQuestionModal();
                   }}
                   className="text-gray-500 hover:text-gray-700 transition-colors"
@@ -3123,6 +3460,29 @@ const AdminPanel = () => {
                     Create Question Set
                   </button>
                 </div>
+              ) : activeQuestionSubject === 'reading' && !readingPassageData ? (
+                <div className="space-y-6">
+                  <div className="mb-4">
+                    <label className="block text-gray-700 text-sm font-medium mb-2">Enter Reading Passage</label>
+                    <textarea
+                      value={readingPassage}
+                      onChange={e => setReadingPassage(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 h-64"
+                      placeholder="Enter the full text of the reading passage here..."
+                    />
+                  </div>
+                  <button
+                    className="bg-blue-600 text-white p-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    disabled={!readingPassage.trim()}
+                    onClick={handleCreateReadingPassage}
+                  >
+                    {loadingPassage ? (
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto"></div>
+                    ) : (
+                      'Create Reading Passage'
+                    )}
+                  </button>
+                </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   {/* Left: Question Input */}
@@ -3135,10 +3495,88 @@ const AdminPanel = () => {
                           addQuestion={(_section, q) => handleAddQuestion(q)}
                         />
                       </div>
+                    ) : activeQuestionSubject === 'reading' && readingPassageData ? (
+                      <>
+                        <div className="mb-4">
+                          <label className="block text-gray-700 text-sm font-medium mb-2">Reading Passage</label>
+                          <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 mb-4 max-h-48 overflow-y-auto">
+                            {readingPassageData.passage_text}
+                          </div>
+                          <button
+                            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                            onClick={() => {
+                              setReadingPassageData(null);
+                              setQuestionsForPassage([]);
+                            }}
+                          >
+                            Change Passage
+                          </button>
+                        </div>
+                        <div>
+                          <div className="flex justify-between w-full">
+                            <div className="flex-1 flex justify-start">
+                          <label className="block text-gray-700 text-sm font-medium mb-2">Question</label>
+                          </div>
+                          </div>
+                          <textarea
+                            value={questionInput}
+                            onChange={e => setQuestionInput(e.target.value)}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Enter question based on the reading passage"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-gray-700 text-sm font-medium mb-2 mt-4">Options</label>
+                          <div className="grid grid-cols-1 gap-2">
+                            {questionOptions.map((opt, idx) => (
+                              <div key={idx} className="flex items-center gap-2">
+                                <input
+                                  type="radio"
+                                  name="correctOption"
+                                  checked={correctOption === idx}
+                                  onChange={() => setCorrectOption(idx)}
+                                />
+                                <input
+                                  type="text"
+                                  value={opt}
+                                  onChange={e => {
+                                    const newOpts = [...questionOptions];
+                                    newOpts[idx] = e.target.value;
+                                    setQuestionOptions(newOpts);
+                                  }}
+                                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  placeholder={`Option ${idx + 1}`}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <button
+                          onClick={handleAddQuestionButtonClick}
+                          disabled={loadingAddSetQuestion || !questionInput || questionOptions.some(opt => !opt) || correctOption === null}
+                          className="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors mt-4 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                        >
+                          {loadingAddSetQuestion ? (
+                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto"></div>
+                          ) : (
+                            'Add Question to Reading Passage'
+                          )}
+                        </button>
+                      </>
                     ) : (
                       <>
                         <div>
+                          <div className="flex justify-between w-full">
+                            <div className="flex-1 flex justify-start">
                           <label className="block text-gray-700 text-sm font-medium mb-2">Question</label>
+                          </div>
+                          <div className="flex-1 flex justify-end text-gray-500 size-sm">
+                            <input id="questionImg" type="file" className="hidden" />
+                              <label htmlFor="questionImg">
+                                <ImagePlus className="w-5 h-5 hover:text-blue-500 transition-colors"/>
+                              </label>
+                            </div>
+                          </div>
                           <textarea
                             value={questionInput}
                             onChange={e => setQuestionInput(e.target.value)}
@@ -3189,7 +3627,9 @@ const AdminPanel = () => {
                   {/* Right: Preview */}
                   <div>
                     <div className="font-semibold mb-2">
-                      {activeQuestionSetData?.id ? 'Questions in Set' : 'Preview'} 
+                      {activeQuestionSubject === 'reading' && readingPassageData ? 
+                        'Questions for Reading Passage' : 
+                        (activeQuestionSetData?.id ? 'Questions in Set' : 'Preview')}
                       ({subjectTabs.find(s=>s.key===activeQuestionSubject)?.label || ''})
                     </div>
 
@@ -3198,6 +3638,49 @@ const AdminPanel = () => {
                         <div className="inline-block h-6 w-6 animate-spin rounded-full border-4 border-solid border-current border-blue-600 border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]" role="status">
                           <span className="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">Loading...</span>
                         </div>
+                      </div>
+                    ) : activeQuestionSubject === 'reading' && readingPassageData ? (
+                      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                        {questionsForPassage.length > 0 ? (
+                          <div className="divide-y divide-gray-200">
+                            {questionsForPassage.map((question, index) => (
+                              <div key={question.id} className="p-4 hover:bg-gray-50">
+                                <div className="flex justify-between items-start">
+                                  <div className="flex-1">
+                                    <p className="text-gray-800 font-medium mb-2">
+                                      {index + 1}. {question.question_text}
+                                    </p>
+                                    <div className="grid grid-cols-1 gap-1 ml-6">
+                                      {question.options.map((option, idx) => (
+                                        <div key={idx} className="flex items-center">
+                                          <div 
+                                            className={`w-4 h-4 rounded-full mr-2 ${option === question.correct_answer ? 'bg-green-600' : 'bg-gray-200'}`}>
+                                          </div>
+                                          <span className={option === question.correct_answer ? 'font-medium' : ''}>
+                                            {option}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                  <button
+                                    onClick={() => handleRemoveQuestionFromPassage(question.id)}
+                                    className="text-red-500 hover:text-red-700 transition-colors"
+                                    disabled={loadingRemovePassageQuestion[question.id]}
+                                  >
+                                    {loadingRemovePassageQuestion[question.id] ? (
+                                      <div className="w-5 h-5 border-2 border-red-500 border-t-transparent rounded-full animate-spin"></div>
+                                    ) : (
+                                      <Trash2 className="w-5 h-5" />
+                                    )}
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-center py-6 text-gray-500">No questions added yet</p>
+                        )}
                       </div>
                     ) : activeQuestionSetData?.id ? (
                       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
