@@ -854,7 +854,75 @@ export async function fetchQuestionSet(subject, setName) {
 
 //............Add Question to Question Set.....................
 
-export async function addQuestionToSet(questionSetId, questionText, questionType, options, correctAnswer) {
+import { getStorageItem, debugImageStorage } from './localStorageHelper';
+
+/**
+ * Get the URL for a question image by its ID
+ * @param {number} imageId - The ID of the image to fetch
+ * @returns {string} - The URL to the image
+ */
+export function getQuestionImageUrl(imageId) {
+  if (!imageId) return '';
+  
+  // Get the authentication token (admin or student)
+  const token = localStorage.getItem("adminToken") || localStorage.getItem("studentToken");
+  
+  // Return the URL with authentication token as a query parameter if available
+  return token 
+    ? `${BACKEND_URL}/question-images/${imageId}?token=${encodeURIComponent(token)}`
+    : `${BACKEND_URL}/question-images/${imageId}`;
+}
+
+/**
+ * Fetch a question image by its ID
+ * @param {number} imageId - The ID of the image to fetch
+ * @param {boolean} useAdminToken - Whether to force using admin token
+ * @returns {Promise<Blob>} - A promise resolving to the image blob
+ */
+export async function fetchQuestionImage(imageId, useAdminToken = false) {
+  if (!imageId) {
+    throw new Error("Image ID is required");
+  }
+
+  // Try to get a token - use specific token if requested, otherwise try both
+  let token;
+  if (useAdminToken) {
+    token = localStorage.getItem("adminToken");
+    if (!token) throw new Error("Admin authentication required");
+  } else {
+    token = localStorage.getItem("adminToken") || localStorage.getItem("studentToken");
+    if (!token) throw new Error("Authentication required");
+  }
+
+  try {
+    console.log(`Fetching image ${imageId} with ${useAdminToken ? 'admin' : 'available'} token`);
+    
+    const response = await fetch(`${BACKEND_URL}/question-images/${imageId}`, {
+      method: "GET",
+      headers: { 
+        "Authorization": `Bearer ${token}`
+      },
+      // Include credentials to ensure cookies are sent with the request if needed
+      credentials: 'include'
+    });
+    
+    if (!response.ok) {
+      // If unauthorized with student token, try with admin token as fallback
+      if (response.status === 401 && !useAdminToken && localStorage.getItem("adminToken")) {
+        console.log("Unauthorized with student token, trying admin token");
+        return fetchQuestionImage(imageId, true);
+      }
+      throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+    }
+    
+    return await response.blob();
+  } catch (error) {
+    console.error("Error fetching question image:", error);
+    throw error;
+  }
+}
+
+export async function addQuestionToSet(questionSetId, questionText, questionType, options, correctAnswer, imageId = null) {
   
   const adminToken = localStorage.getItem("adminToken");
 
@@ -862,6 +930,19 @@ export async function addQuestionToSet(questionSetId, questionText, questionType
     throw new Error("Authentication required");
   }
 
+  console.log("API - addQuestionToSet called with imageId:", imageId);
+  const storedImageId = getStorageItem('lastUploadedImageId');
+  console.log("API - localStorage value check:", storedImageId);
+  
+  // If no imageId was provided but one exists in localStorage, use that as a fallback
+  if (!imageId && storedImageId) {
+    imageId = parseInt(storedImageId, 10);
+    console.log("API - Using fallback image ID from localStorage:", imageId);
+  }
+  
+  // Debug all storage
+  debugImageStorage();
+  
   // Make sure we have a valid question set ID
   if (!questionSetId) {
     throw new Error("Question set ID is required");
@@ -903,7 +984,8 @@ export async function addQuestionToSet(questionSetId, questionText, questionType
       question_text: questionText,
       question_type: questionType,
       options: formattedOptions,
-      correct_answer: formattedAnswer
+      correct_answer: formattedAnswer,
+      ...(imageId ? { image_id: imageId } : {})
     });
     
     // Ensure the URL is correctly formatted
@@ -919,7 +1001,8 @@ export async function addQuestionToSet(questionSetId, questionText, questionType
         question_text: questionText || '',
         question_type: questionType || 'mcq',
         options: formattedOptions,
-        correct_answer: formattedAnswer
+        correct_answer: formattedAnswer,
+        ...(imageId ? { image_id: parseInt(imageId, 10) } : {}) // Include image_id if provided (ensure it's a number)
       }),
     });
     

@@ -1,6 +1,7 @@
 import React from "react";
 import 'katex/dist/katex.min.css';
 import { InlineMath } from 'react-katex';
+import QuestionImage from './components/QuestionImage';
 
 // Function to convert radical notation to exponential notation
 const convertRadicalToExponential = (text) => {
@@ -84,6 +85,29 @@ const QuestionsList = ({ activeSection, examForm, removeQuestion, loadingRemoveQ
               className="p-4 border border-gray-200 rounded-lg flex justify-between items-start"
             >
               <div>
+                {/* Display question image if available */}
+                {(q.image_id || q.image_path) && (
+                  <div className="mb-3 border border-gray-200 rounded-lg p-2 max-w-[300px]">
+                    {q.image_id ? (
+                      <QuestionImage 
+                        imageId={q.image_id} 
+                        alt={`Image for question ${index + 1}`}
+                        className="h-auto rounded-lg mx-auto"
+                        onError={(e) => console.error('Failed to load image:', e)}
+                      />
+                    ) : q.image_path ? (
+                      <img 
+                        src={q.image_path.startsWith('http') ? q.image_path : `${window.location.origin}${q.image_path}`} 
+                        alt="Question image" 
+                        className="max-w-full h-auto rounded-lg mx-auto"
+                        onError={(e) => {
+                          console.error('Failed to load image:', e);
+                          e.target.style.display = 'none';
+                        }}
+                      />
+                    ) : null}
+                  </div>
+                )}
                 <p className="font-medium">
                   {index + 1}. {renderContent(q.question)}
                 </p>

@@ -9,6 +9,7 @@ import { initializeExamSecurity } from './utils/examSecurity.js';
 import { SecurityModalContainer } from './utils/securityModal.jsx';
 import MathDisplay from './components/MathDisplay';
 import { renderContent, renderMathContent } from './utils/mathUtils';
+import QuestionImage from './components/QuestionImage';
 
 // Using mathUtils.jsx for all math rendering functionality
 
@@ -400,26 +401,10 @@ const OnlineExam = () => {
       markSectionSubmitted(userExamId, currentSection.id);
       
       // Format answers for API - using correct format with answer_text
-      const formattedAnswers = Object.entries(answers).map(([questionId, answer]) => {
-        // Find the question to determine its type
-        const question = questions.find(q => q.id.toString() === questionId.toString());
-        
-        // Special handling for reading questions
-        if (question && question.question_type === 'reading_question') {
-          // For reading questions, use the value directly (not index)
-          return {
-            question_id: parseInt(questionId),
-            answer_text: answer,
-            is_reading_question: true
-          };
-        } else {
-          // For regular questions
-          return {
-            question_id: parseInt(questionId),
-            answer_text: answer
-          };
-        }
-      });
+      const formattedAnswers = Object.entries(answers).map(([questionId, answer]) => ({
+        question_id: parseInt(questionId),
+        answer_text: answer
+      }));
 
       console.log('Submitting answers:', {
         userExamId,
@@ -636,6 +621,29 @@ const OnlineExam = () => {
                             <div key={question.question_id} className={`p-3 rounded-md ${
                               question.is_correct ? 'bg-green-50 border border-green-100' : 'bg-red-50 border border-red-100'
                             }`}>
+                              {/* Display question image if available */}
+                              {(question.image_id || question.image_path) && (
+                                <div className="mb-3 border border-gray-200 rounded-lg p-2 bg-white">
+                                  {question.image_id ? (
+                                    <QuestionImage 
+                                      imageId={question.image_id} 
+                                      alt={`Image for question`}
+                                      className="max-h-[200px] h-auto rounded-lg mx-auto"
+                                      onError={(e) => console.error('Failed to load image:', e)}
+                                    />
+                                  ) : question.image_path ? (
+                                    <img 
+                                      src={question.image_path.startsWith('http') ? question.image_path : `${BACKEND_URL}${question.image_path}`} 
+                                      alt="Question image" 
+                                      className="max-w-full h-auto rounded-lg mx-auto max-h-[200px]"
+                                      onError={(e) => {
+                                        console.error('Failed to load image:', e);
+                                        e.target.style.display = 'none';
+                                      }}
+                                    />
+                                  ) : null}
+                                </div>
+                              )}
                               <p className="text-sm font-medium text-gray-800 mb-2">{question.question_text}</p>
                               
                               {question.question_type === 'mcq' && (
@@ -804,49 +812,46 @@ const OnlineExam = () => {
             Section {currentSectionNumber} of {totalSections}
           </div>
         </div>
-        
-        {/* Display Reading Passage if present */}
-        {Array.isArray(questions) && questions.some(q => q.question_type === 'reading_passage') && (
-          <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
-            <div className="flex items-center mb-4">
-              <BookOpen className="mr-2 text-blue-600" />
-              <h3 className="text-xl font-bold text-blue-600">Reading Passage</h3>
-            </div>
-            <div className="prose max-w-none">
-              {questions.find(q => q.question_type === 'reading_passage')?.question_text ? (
-                <div dangerouslySetInnerHTML={{ __html: 
-                  questions.find(q => q.question_type === 'reading_passage').question_text 
-                }}></div>
-              ) : questions.find(q => q.question_type === 'reading_passage')?.passage_text ? (
-                <div dangerouslySetInnerHTML={{ __html: 
-                  questions.find(q => q.question_type === 'reading_passage').passage_text 
-                }}></div>
-              ) : (
-                <p className="text-gray-500">Reading passage text unavailable.</p>
-              )}
-            </div>
-          </div>
-        )}
 
-        {/* Display Questions - filter out passage "questions" */}
-        {Array.isArray(questions) && questions
-          .filter(q => q.question_type !== 'reading_passage')
-          .map((q, index) => {
-            const questionNumber = index + 1;
-            const isAnswered = answers[q.id] !== undefined;
-            
-            return (
-              <div key={q.id} className="bg-white rounded-lg shadow-sm border p-6 mb-6">
-                <div className="flex items-start space-x-4">
-                  <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                    isAnswered ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
-                  }`}>
-                    {isAnswered ? <CheckCircle className="w-4 h-4" /> : questionNumber}
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">
-                      <MathDisplay content={q.question_text} />
-                    </h3>
+        {Array.isArray(questions) && questions.map((q, index) => {
+          const questionNumber = index + 1;
+          const isAnswered = answers[q.id] !== undefined;
+          
+          return (
+            <div key={q.id} className="bg-white rounded-lg shadow-sm border p-6 mb-6">
+              <div className="flex items-start space-x-4">
+                <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                  isAnswered ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
+                }`}>
+                  {isAnswered ? <CheckCircle className="w-4 h-4" /> : questionNumber}
+                </div>
+                <div className="flex-1">
+                  {/* Display question image if available */}
+                  {(q.image_id || q.image_path) && (
+                    <div className="mb-4 border border-gray-200 rounded-lg p-2">
+                      {q.image_id ? (
+                        <QuestionImage 
+                          imageId={q.image_id} 
+                          alt={`Image for question ${questionNumber}`}
+                          className="max-h-[300px] h-auto rounded-lg mx-auto"
+                          onError={(e) => console.error('Failed to load image:', e)}
+                        />
+                      ) : q.image_path ? (
+                        <img 
+                          src={q.image_path.startsWith('http') ? q.image_path : `${BACKEND_URL}${q.image_path}`} 
+                          alt="Question image" 
+                          className="max-w-full h-auto rounded-lg mx-auto max-h-[300px]"
+                          onError={(e) => {
+                            console.error('Failed to load image:', e);
+                            e.target.style.display = 'none';
+                          }}
+                        />
+                      ) : null}
+                    </div>
+                  )}
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">
+                    <MathDisplay content={q.question_text} />
+                  </h3>
                   
                   {q.question_type === 'mcq' && q.options && (
                     <div className="space-y-3">

@@ -6,6 +6,7 @@ import { Users, BookOpen, Plus, Edit3, Trash2, Eye, EyeOff, GraduationCap, FileT
          ScrollText, CircuitBoard, FlaskConical, Stethoscope, UserCircle2, Calendar, Search, ImagePlus } from 'lucide-react';
 import './components/Tooltip.css';
 import toastService from './utils/toast.jsx';
+import { setStorageItem, getStorageItem, removeStorageItem, debugImageStorage } from './utils/localStorageHelper';
 import { 
   BACKEND_URL, 
   fetchReadingPassage as apiGetReadingPassage,
@@ -79,6 +80,12 @@ const AdminPanel = () => {
   const [questionInput, setQuestionInput] = useState('');
   const [questionOptions, setQuestionOptions] = useState(['', '', '', '']);
   const [correctOption, setCorrectOption] = useState(null);
+  // Image handling
+  const [questionImage, setQuestionImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [uploadedImage, setUploadedImage] = useState(null);
+  const [imageId, setImageId] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
   // For math section
   const [mathQuestionForm, setMathQuestionForm] = useState(null); // will be set by MathMCQMaker
 
@@ -102,6 +109,14 @@ const AdminPanel = () => {
     setQuestionsForPassage([]);
     setLoadingPassage(false);
     setLoadingRemovePassageQuestion({});
+    setQuestionImage(null);
+    setImagePreview(null);
+    setUploadedImage(null);
+    setImageId(null);
+    
+    // Clear localStorage entries related to the image
+    localStorage.removeItem('lastUploadedImageId');
+    localStorage.removeItem('lastUploadedImagePath');
     setQuestionModalBank({
       english: [],
       math: [],
@@ -110,6 +125,107 @@ const AdminPanel = () => {
       chemistry: [],
       biology: [],
     });
+  };
+  
+  // Handle image selection
+  const handleImageSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (!file.type.match('image.*')) {
+        toastService.error('Please select an image file (jpg, jpeg, png, gif)');
+        return;
+      }
+      
+      setQuestionImage(file);
+      
+      // Create preview URL
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+  
+  // Cancel image selection
+  const cancelImageSelection = () => {
+    setQuestionImage(null);
+    setImagePreview(null);
+    setUploadedImage(null);
+    setImageId(null);
+    
+    // Clear localStorage entries related to the image
+    localStorage.removeItem('lastUploadedImageId');
+    localStorage.removeItem('lastUploadedImagePath');
+  };
+  
+  // Upload image to server
+  const uploadQuestionImage = async () => {
+    if (!questionImage) {
+      toastService.error('No image selected');
+      return null;
+    }
+    
+    setIsUploading(true);
+    
+    try {
+      // Create form data
+      const formData = new FormData();
+      formData.append('image', questionImage);
+      
+      // Upload the image
+      const response = await fetch(`${BACKEND_URL}/question-images/upload`, {
+        method: 'POST',
+        headers: {
+          "Authorization": `Bearer ${localStorage.getItem('adminToken')}`
+          // Do not set Content-Type here, browser will set it automatically with boundary
+        },
+        body: formData
+      });
+      
+      const result = await response.json();
+      
+      console.log("Image upload response:", result);
+      if (result.success) {
+        toastService.success('Image uploaded successfully');
+        
+        // Check if the response has the expected structure
+        if (!result.data || !result.data.image) {
+          console.error("Unexpected API response structure:", result);
+          toastService.error('Unexpected response from server');
+          return null;
+        }
+        
+        // Store the full response data
+        setUploadedImage(result.data);
+        
+        // Extract and store the image ID
+        const uploadedImageId = result.data.image?.id;
+        setImageId(uploadedImageId);
+        
+        // Use our helper to store values
+        setStorageItem('lastUploadedImageId', uploadedImageId);
+        setStorageItem('lastUploadedImagePath', result.data.image?.path || '');
+        
+        // Debug storage values
+        debugImageStorage();
+        
+        // Log the image ID to the console
+        console.log("Uploaded Image ID:", uploadedImageId);
+        console.log("Complete image data:", result.data);
+        console.log("Image path:", result.data.image?.path);
+        
+        return result.data;
+      } else {
+        throw new Error(result.message || 'Failed to upload image');
+      }
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toastService.error(`Upload failed: ${error.message}`);
+      return null;
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   // Function to fetch a specific reading passage by ID
@@ -145,11 +261,46 @@ const AdminPanel = () => {
 
   // Add question for current subject
   const handleAddQuestion = async (q) => {
+    // First, upload the image if one is selected
+    let uploadedImageData = null;
+    let currentImageId = null;
+    
+    if (questionImage && !uploadedImage) {
+      uploadedImageData = await uploadQuestionImage();
+      if (!uploadedImageData) {
+        toastService.error('Failed to upload image. Please try again.');
+        return;
+      }
+      // After upload, get the image ID from localStorage for reliability
+      currentImageId = localStorage.getItem('lastUploadedImageId');
+      console.log("Newly uploaded image ID (from localStorage):", currentImageId);
+    } else if (uploadedImage) {
+      uploadedImageData = uploadedImage;
+      // Get the image ID from localStorage for reliability
+      currentImageId = localStorage.getItem('lastUploadedImageId') || imageId;
+      console.log("Using stored image ID (from localStorage):", currentImageId);
+    }
+    
+    // Always double-check localStorage for the image ID
+    if (!currentImageId && localStorage.getItem('lastUploadedImageId')) {
+      currentImageId = localStorage.getItem('lastUploadedImageId');
+      console.log("Recovered image ID from localStorage:", currentImageId);
+    }
+    
+    console.log("Using image ID for question:", currentImageId);
+    
     let newQ;
     if (activeQuestionSubject === 'math') {
       newQ = q; // MathMCQMaker provides the full question object
       // Store the math question form for later use
       setMathQuestionForm(newQ);
+      
+      // Add image data if available
+      if (currentImageId) {
+        newQ.image_id = parseInt(currentImageId, 10);
+        newQ.image_path = localStorage.getItem('lastUploadedImagePath') || '';
+        console.log("Added image to math question with ID (from localStorage):", currentImageId);
+      }
     } else {
       newQ = {
         id: Date.now(),
@@ -158,6 +309,13 @@ const AdminPanel = () => {
         correctAnswer: correctOption,
         hasMath: false,
       };
+      
+      // Add image data if available
+      if (currentImageId) {
+        newQ.image_id = parseInt(currentImageId, 10);
+        newQ.image_path = localStorage.getItem('lastUploadedImagePath') || '';
+        console.log("Added image to regular question with ID (from localStorage):", currentImageId);
+      }
     }
     
     // Add to local state for preview
@@ -220,13 +378,38 @@ const AdminPanel = () => {
           typeof opt === 'object' && opt !== null ? opt.text : opt
         ) : options;
         
-        await handleAddQuestionToSet(
-          questionSetId,
-          questionText,
-          'mcq',
-          formattedOptions,
-          correctAnswer
-        );
+        // If we have an image, include the image_id in the question
+        // Get the image ID using our helper
+        const storedImageId = getStorageItem('lastUploadedImageId');
+        console.log("Checking localStorage before adding question:", storedImageId);
+        
+        // Debug all stored values
+        debugImageStorage();
+        
+        if (storedImageId) {
+          // Always get the image ID from localStorage for maximum reliability
+          const numericImageId = parseInt(storedImageId, 10);
+            
+          console.log("Passing image ID to addQuestionToSet (from localStorage):", numericImageId);
+          
+          await handleAddQuestionToSet(
+            questionSetId,
+            questionText,
+            'mcq',
+            formattedOptions,
+            correctAnswer,
+            numericImageId
+          );
+          console.log("Added question to set with image ID:", numericImageId);
+        } else {
+          await handleAddQuestionToSet(
+            questionSetId,
+            questionText,
+            'mcq',
+            formattedOptions,
+            correctAnswer
+          );
+        }
       } catch (error) {
         console.error("Error adding question to set:", error);
         toastService.error(`Error: ${error.message || 'Failed to add question to set'}`);
@@ -777,19 +960,7 @@ const AdminPanel = () => {
       
       // Format the options for the API
       const formattedOptions = options.map(opt => String(opt));
-      
-      // For reading questions, we need to store the actual value of the correct answer
-      let correctAnswerText;
-      
-      if (typeof correctAnswer === 'number') {
-        // If correctAnswer is an index, get the corresponding option value
-        correctAnswerText = formattedOptions[correctAnswer];
-        console.log("Converting index to value for reading question:", correctAnswer, "->", correctAnswerText);
-      } else {
-        // If correctAnswer is already a value, use it directly
-        correctAnswerText = String(correctAnswer);
-        console.log("Using provided value for reading question:", correctAnswerText);
-      }
+      const correctAnswerText = formattedOptions[correctAnswer];
       
       // Use the API function that requires setId
       const response = await addQuestionToReadingPassage(
@@ -859,44 +1030,6 @@ const AdminPanel = () => {
       if (response.success && response.data.questions && response.data.questions.length > 0) {
         console.log("Questions from set:", response.data.questions);
         
-        // Check if this is a reading question set
-        const isReadingSet = response.data.subject_name === 'reading';
-        let readingPassageData = null;
-        
-        // If this is a reading set, fetch the passage first
-        if (isReadingSet) {
-          try {
-            // Import the passage utility
-            const { fetchPassageForReadingSet } = await import('./utils/passageUtils');
-            const passageResult = await fetchPassageForReadingSet(questionSetId);
-            
-            if (passageResult.success && passageResult.data) {
-              readingPassageData = passageResult.data;
-              console.log("Found passage for reading set:", readingPassageData);
-              
-              // Create a special passage "question" that will display at the top of the exam section
-              const passageQuestion = {
-                id: Date.now() + "-passage", // Unique ID for passage
-                question: "Reading Passage",
-                question_text: readingPassageData.passage_text || readingPassageData.text || "",
-                question_type: "reading_passage",
-                passage_id: readingPassageData.id,
-                is_passage: true,
-                options: [],
-                correctAnswer: null,
-                hasMath: false
-              };
-              
-              // Add passage as the first "question" in the section
-              await addQuestion(section, passageQuestion);
-            } else {
-              console.error("Failed to fetch reading passage for set:", questionSetId);
-            }
-          } catch (error) {
-            console.error("Error handling reading passage:", error);
-          }
-        }
-        
         // Add each question to the section
         for (const question of response.data.questions) {
           // Find the index of the correct answer in the options array
@@ -904,38 +1037,21 @@ const AdminPanel = () => {
           console.log("Options:", question.options);
           console.log("Correct answer:", question.correct_answer);
           
-          // Handle reading questions differently
-          if (isReadingSet && readingPassageData) {
-            // For reading questions, use the actual answer value
-            const newQuestion = {
-              id: Date.now() + Math.random(), // Temporary ID
-              question: question.question_text,
-              options: question.options,
-              correctAnswer: question.correct_answer, // Store actual value for reading
-              question_type: "reading_question",
-              passage_id: readingPassageData.id,
-              hasMath: false
-            };
-            
-            await addQuestion(section, newQuestion);
-          } else {
-            // For regular questions, continue with index-based approach
-            const correctIndex = question.options.findIndex(
-              option => option === question.correct_answer
-            );
-            
-            console.log("Correct index found:", correctIndex);
-            
-            const newQuestion = {
-              id: Date.now() + Math.random(), // Temporary ID
-              question: question.question_text,
-              options: question.options,
-              correctAnswer: correctIndex >= 0 ? correctIndex : 0, // Default to first option if not found
-              hasMath: section === 'math'
-            };
-            
-            await addQuestion(section, newQuestion);
-          }
+          const correctIndex = question.options.findIndex(
+            option => option === question.correct_answer
+          );
+          
+          console.log("Correct index found:", correctIndex);
+          
+          const newQuestion = {
+            id: Date.now() + Math.random(), // Temporary ID
+            question: question.question_text,
+            options: question.options,
+            correctAnswer: correctIndex >= 0 ? correctIndex : 0, // Default to first option if not found
+            hasMath: section === 'math'
+          };
+          
+          await addQuestion(section, newQuestion);
         }
         
         toastService.success(`Added ${response.data.questions.length} questions to ${section} section`);
@@ -948,12 +1064,14 @@ const AdminPanel = () => {
     }
   };
 
-  const handleAddQuestionToSet = async (questionSetId, questionText, questionType, options, correctAnswer) => {
+  const handleAddQuestionToSet = async (questionSetId, questionText, questionType, options, correctAnswer, imageId = null) => {
     console.log("Adding question with ID:", questionSetId);
     console.log("Question text:", questionText);
     console.log("Question type:", questionType);
     console.log("Options:", options);
     console.log("Correct answer:", correctAnswer);
+    console.log("Image ID:", imageId);
+    console.log("Image ID type:", typeof imageId);
     
     // Validate inputs before proceeding
     if (!questionText || questionText.trim() === '') {
@@ -2283,15 +2401,69 @@ const AdminPanel = () => {
                   ) : (
                     <>
                       <div>
+                          {/* Image preview area - positioned at the top */}
+                          {imagePreview && (
+                            <div className="mb-4 relative">
+                              <div className="border border-gray-300 rounded-lg p-2 relative">
+                                <img 
+                                  src={imagePreview} 
+                                  alt="Question image preview" 
+                                  className="max-h-48 max-w-full mx-auto rounded"
+                                />
+                                <div className="mt-2 flex justify-between">
+                                  <button
+                                    type="button"
+                                    onClick={cancelImageSelection}
+                                    className="text-red-500 text-sm hover:text-red-700"
+                                  >
+                                    Remove
+                                  </button>
+                                  {!uploadedImage && !isUploading && (
+                                    <button
+                                      type="button"
+                                      onClick={uploadQuestionImage}
+                                      className="bg-blue-500 text-white px-3 py-1 text-sm rounded hover:bg-blue-600"
+                                    >
+                                      Upload
+                                    </button>
+                                  )}
+                                  {isUploading && (
+                                    <span className="text-gray-500 text-sm">Uploading...</span>
+                                  )}
+                                  {uploadedImage && (
+                                    <span className="text-green-500 text-sm">✓ Uploaded</span>
+                                  )}
+                                </div>
+                                {/* Debug button to check localStorage */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const { imageId, imagePath } = debugImageStorage();
+                                    alert(`Image ID in localStorage: ${imageId || 'Not found'}`);
+                                  }}
+                                  className="mt-2 text-xs text-blue-500 underline"
+                                >
+                                  Debug: Check localStorage
+                                </button>
+                              </div>
+                            </div>
+                          )}
 
                          <div className="flex justify-between w-full">
                             <div className="flex-1 flex justify-start">
                           <label className="block text-gray-700 text-sm font-medium mb-2">Question</label>
                           </div>
                           <div className="flex-1 flex justify-end text-gray-500 size-sm">
-                            <input id="qstnImg" type="file" className="hidden" />
-                              <label htmlFor="qstnImg">
+                            <input 
+                              id="qstnImg" 
+                              type="file" 
+                              className="hidden" 
+                              accept="image/*"
+                              onChange={handleImageSelect} 
+                            />
+                              <label htmlFor="qstnImg" className="cursor-pointer flex items-center">
                                 <ImagePlus className="w-5 h-5 hover:text-blue-500 transition-colors"/>
+                                
                               </label>
                             </div>
                           </div>
