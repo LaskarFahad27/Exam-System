@@ -7,128 +7,10 @@ import toastService from './utils/toast.jsx';
 import { isSectionSubmitted, markSectionSubmitted, clearSectionSubmitted, clearExamSubmissionFlags } from './utils/examSubmission';
 import { initializeExamSecurity } from './utils/examSecurity.js';
 import { SecurityModalContainer } from './utils/securityModal.jsx';
-import 'katex/dist/katex.min.css';
-import { InlineMath } from 'react-katex';
+import MathDisplay from './components/MathDisplay';
+import { renderContent, renderMathContent } from './utils/mathUtils';
 
-// Function to convert radical notation to exponential notation
-const convertRadicalToExponential = (text) => {
-  if (!text || typeof text !== 'string') return text;
-  
-  let converted = text;
-  
-  // Convert common math symbols to LaTeX format first, then to exponential
-  const preConversions = [
-    // Unicode symbols to LaTeX
-    { pattern: /√/g, replacement: '\\sqrt{}' },
-    { pattern: /∛/g, replacement: '\\sqrt[3]{}' },
-    { pattern: /∜/g, replacement: '\\sqrt[4]{}' },
-    { pattern: /⁵√/g, replacement: '\\sqrt[5]{}' },
-    { pattern: /ⁿ√/g, replacement: '\\sqrt[n]{}' },
-    { pattern: /²/g, replacement: '^2' },
-    { pattern: /³/g, replacement: '^3' },
-    { pattern: /⁴/g, replacement: '^4' },
-    { pattern: /⁵/g, replacement: '^5' },
-    { pattern: /₂/g, replacement: '_2' },
-    { pattern: /₃/g, replacement: '_3' },
-    { pattern: /π/g, replacement: '\\pi' },
-  ];
-  
-  preConversions.forEach(({ pattern, replacement }) => {
-    converted = converted.replace(pattern, replacement);
-  });
-  
-  // Handle cases where content follows immediately after the radical symbol
-  converted = converted.replace(/\\sqrt\{\}(\d+)/g, '\\sqrt{$1}');
-  converted = converted.replace(/\\sqrt\{\}([a-zA-Z]+)/g, '\\sqrt{$1}');
-  converted = converted.replace(/\\sqrt\{\}([a-zA-Z0-9]+)/g, '\\sqrt{$1}');
-  
-  // Convert ALL radical patterns to exponential form (strict exponential-only policy)
-  const conversions = [
-    // Square roots with content: √144 → 144^(1/2)
-    { pattern: /\\sqrt\{([^{}]*)\}([a-zA-Z0-9]+)/g, replacement: '($2)^{1/2}' },
-    { pattern: /\\sqrt\{([^{}]+)\}/g, replacement: '($1)^{1/2}' },
-    { pattern: /√([a-zA-Z0-9]+)/g, replacement: '$1^{1/2}' },
-    
-    // Cube roots
-    { pattern: /\\sqrt\[3\]\{([^{}]+)\}/g, replacement: '($1)^{1/3}' },
-    { pattern: /\\sqrt\[3\]\{([^{}]*)\}([a-zA-Z0-9]+)/g, replacement: '($2)^{1/3}' },
-    
-    // Fourth roots  
-    { pattern: /\\sqrt\[4\]\{([^{}]+)\}/g, replacement: '($1)^{1/4}' },
-    { pattern: /\\sqrt\[4\]\{([^{}]*)\}([a-zA-Z0-9]+)/g, replacement: '($2)^{1/4}' },
-    
-    // Fifth roots
-    { pattern: /\\sqrt\[5\]\{([^{}]+)\}/g, replacement: '($1)^{1/5}' },
-    { pattern: /\\sqrt\[5\]\{([^{}]*)\}([a-zA-Z0-9]+)/g, replacement: '($2)^{1/5}' },
-    
-    // General nth roots
-    { pattern: /\\sqrt\[([^[\]]+)\]\{([^{}]+)\}/g, replacement: '($2)^{1/$1}' },
-    { pattern: /\\sqrt\[([^[\]]+)\]\{([^{}]*)\}([a-zA-Z0-9]+)/g, replacement: '($3)^{1/$1}' },
-    
-    // Handle any remaining \\sqrt commands (fallback to square root)
-    { pattern: /\\sqrt\{([^{}]+)\}/g, replacement: '($1)^{1/2}' },
-    { pattern: /\\sqrt([a-zA-Z0-9]+)/g, replacement: '$1^{1/2}' },
-    
-    // Clean up double parentheses for simple variables/numbers
-    { pattern: /\(([a-zA-Z])\)\^/g, replacement: '$1^' },
-    { pattern: /\(([0-9]+)\)\^/g, replacement: '$1^' },
-    { pattern: /\(([a-zA-Z][0-9]*)\)\^/g, replacement: '$1^' },
-  ];
-  
-  conversions.forEach(({ pattern, replacement }) => {
-    converted = converted.replace(pattern, replacement);
-  });
-  
-  return converted;
-};
-
-
-const renderMathContent = (text) => {
-  if (!text || typeof text !== 'string') return text;
-  
-  // First check: Does the string contain [math] tags?
-  if (text.includes('[math]') && text.includes('[/math]')) {
-    try {
-      // Check for duplicated content pattern: "if x^2+5=10, then x=? [math]x^2+5=10,x=?[/math]"
-      const mathRegex = /\[math\](.*?)\[\/math\]/;
-      const matches = text.match(mathRegex);
-      
-      // If we found math content in tags
-      if (matches && matches[1]) {
-        const mathContent = matches[1];
-        const textBeforeMath = text.split('[math]')[0].trim();
-        
-        // If the text before [math] tag is very similar to the math content,
-        // it's likely duplicated so only show the math part
-        if (textBeforeMath && 
-            (textBeforeMath.replace(/\s+/g, '') === mathContent.replace(/\s+/g, '') ||
-             textBeforeMath.includes(mathContent) || 
-             mathContent.includes(textBeforeMath))) {
-          console.log('Detected duplicate text and math content, showing only math');
-          return <InlineMath math={mathContent} />;
-        }
-        
-        // Otherwise, it's unique content, so return just the math portion
-        return <InlineMath math={mathContent} />;
-      }
-    } catch (error) {
-      console.error('Math tag extraction error:', error);
-    }
-  }
-  
-  // If no math tags but has math symbols that need rendering
-  const mathSymbols = /[√∛∜⁵²³⁴⁵₂₃π]|x²|x³|\^|\\_|log₂/;
-  
-  if (!mathSymbols.test(text)) return text;
-  
-  try {
-    // For regular math content without tags, render it with KaTeX
-    return <InlineMath math={text} />;
-  } catch (error) {
-    console.error('Math content processing error:', error);
-    return text; // Return original text if processing fails
-  }
-};
+// Using mathUtils.jsx for all math rendering functionality
 
 const OnlineExam = () => {
   const navigate = useNavigate();
@@ -921,7 +803,7 @@ const OnlineExam = () => {
                 </div>
                 <div className="flex-1">
                   <h3 className="text-lg font-medium text-gray-900 mb-4">
-                    {renderMathContent(q.question_text)}
+                    <MathDisplay content={q.question_text} />
                   </h3>
                   
                   {q.question_type === 'mcq' && q.options && (
@@ -944,7 +826,7 @@ const OnlineExam = () => {
                             className="text-blue-600"
                           />
                           <span className="flex-1">
-                            {renderMathContent(option.text)}
+                            <MathDisplay content={option.text} />
                           </span>
                         </label>
                       ))}

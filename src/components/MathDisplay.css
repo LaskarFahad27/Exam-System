@@ -1,0 +1,25 @@
+.math-display {
+  /* Ensure proper spacing around math expressions */
+  margin: 0.5rem 0;
+  line-height: 1.5;
+}
+
+/* Style for inline math expressions */
+.math-display .katex {
+  font-size: 1.1em; /* Slightly larger than normal text */
+}
+
+/* Ensure proper vertical alignment */
+.math-display .katex-display {
+  margin: 1rem 0;
+}
+
+/* Improve visibility of superscripts and subscripts */
+.math-display .katex .msupsub {
+  font-size: 90%;
+}
+
+/* Fix for fractions to improve readability */
+.math-display .katex .mfrac {
+  font-size: 105%;
+}
