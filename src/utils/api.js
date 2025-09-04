@@ -34,7 +34,7 @@ export async function fetchReadingPassage(passageId) {
   }
 }
 
-export async function fetchQuestionsForPassage(passageId) {
+export async function fetchQuestionsForPassage(setId) {
   const adminToken = localStorage.getItem("adminToken");
 
   if (!adminToken) {
@@ -42,7 +42,7 @@ export async function fetchQuestionsForPassage(passageId) {
   }
 
   try {
-    const response = await fetch(`${BACKEND_URL}/reading/passages/${passageId}/questions`, {
+    const response = await fetch(`${BACKEND_URL}/question-sets/${setId}`, {
       method: "GET",
       headers: { 
         "Content-Type": "application/json",

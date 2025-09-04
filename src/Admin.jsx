@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from "react-router-dom";
+import ReadingPassageQuestions from './ReadingPassageQuestions';
+import { fetchPassageForReadingSet } from './utils/passageUtils';
 import { Users, BookOpen, Plus, Edit3, Trash2, Eye, EyeOff, GraduationCap, FileText, Calculator, Book, PenTool, X, 
          ScrollText, CircuitBoard, FlaskConical, Stethoscope, UserCircle2, Calendar, Search, ImagePlus } from 'lucide-react';
 import './components/Tooltip.css';
@@ -630,15 +632,33 @@ const AdminPanel = () => {
   };
 
   // Function to fetch questions for a specific reading passage
-  const fetchQuestionsForPassage = async (passageId) => {
+  const fetchQuestionsForPassage = async (setId) => {
+    if (!readingPassageData) {
+      console.log("No reading passage data available");
+      return;
+    }
+    
+    // Get the passage ID
+    const passageId = readingPassageData.id || readingPassageData.uuid;
+    if (!passageId) {
+      console.log("No passage ID available");
+      return;
+    }
+    
     try {
       setLoadingQuestions(true);
       
-      // Use the API function from utils/api.js
-      const response = await apiGetPassageQuestions(passageId);
+      // Fetch questions for the set using the API - this will include reading passage questions
+      const response = await fetchQuestionsForSet(setId);
       
-      if (response.success) {
-        setQuestionsForPassage(response.data);
+      if (response && response.success) {
+        // Filter questions for this specific passage
+        const passageQuestions = response.data.questions.filter(
+          q => q.passage_id === passageId && q.question_type === 'reading_question'
+        );
+        
+        console.log("Filtered passage questions:", passageQuestions);
+        setQuestionsForPassage(passageQuestions);
       } else {
         throw new Error('Failed to fetch questions for passage');
       }
@@ -659,7 +679,7 @@ const AdminPanel = () => {
       if (response.success) {
         setReadingPassageData(response.data);
         // After setting the passage data, fetch its questions
-        await fetchQuestionsForPassage(passageId);
+        await fetchQuestionsForPassage(activeQuestionSetData?.id);
       } else {
         throw new Error('Failed to fetch reading passage');
       }
@@ -772,9 +792,34 @@ const AdminPanel = () => {
         console.log("Question added to reading passage:", response.data);
         toastService.success('Question added to reading passage');
         
-        // Refresh the questions list
-        await fetchQuestionsForPassage(passageId);
-        
+        // If the response contains the newly added question directly
+        if (response.data.questions) {
+          // Set the questions from the response
+          const passageQuestions = response.data.questions.filter(
+            q => q.passage_id === passageId && q.question_type === 'reading_question'
+          );
+          console.log("Setting questions from response:", passageQuestions);
+          setQuestionsForPassage(passageQuestions);
+        } else {
+          // If not, add the new question to the existing list
+          const newQuestion = {
+            id: response.data.id || Date.now(),
+            uuid: response.data.uuid,
+            question_set_id: activeQuestionSetData.id,
+            passage_id: passageId,
+            question_text: questionText,
+            question_type: 'reading_question',
+            options: formattedOptions,
+            correct_answer: correctAnswerText,
+            created_at: new Date().toISOString()
+          };
+          
+          setQuestionsForPassage(prev => [...prev, newQuestion]);
+          
+          // Also fetch from API to ensure consistency
+          await fetchQuestionsForPassage(activeQuestionSetData.id);
+        }
+
         // Reset the question form
         setQuestionInput('');
         setQuestionOptions(['', '', '', '']);
@@ -1116,6 +1161,58 @@ const AdminPanel = () => {
     setActiveQuestionSet(set.uuid);
     setActiveQuestionSetData(set);
     setActiveQuestionSubject(set.subject_name);
+    
+    // Reset reading passage data initially
+    setReadingPassageData(null);
+    setQuestionsForPassage([]);
+    
+    // If this is a reading set, check if it already has a passage
+    if (set.subject_name === 'reading') {
+      console.log("Opening a reading question set, checking for passage...");
+      try {
+        const passageResult = await fetchPassageForReadingSet(set.id);
+        console.log("Passage fetch result:", passageResult);
+        
+        if (passageResult.success && passageResult.data) {
+          // We found a passage for this set, set it
+          const passageData = passageResult.data;
+          console.log("Setting passage data:", passageData);
+          
+          // Store the raw data for complete transparency
+          window.debugPassageData = passageData;
+          
+          // Make sure it has the needed fields
+          setReadingPassageData({
+            ...passageData,
+            // Make sure passage_text is available - try multiple possible field locations
+            passage_text: passageData.passage_text || 
+                          passageData.text || 
+                          (passageData.passage && passageData.passage.text) || 
+                          passageData.content || 
+                          "",
+            // Make sure id is available
+            id: passageData.id || 
+                passageData.uuid || 
+                (passageData.passage && (passageData.passage.id || passageData.passage.uuid))
+          });
+          
+          // Also set the questions for this passage
+          if (passageResult.questions) {
+            console.log("Setting questions for passage:", passageResult.questions.length);
+            setQuestionsForPassage(passageResult.questions);
+          }
+          
+          console.log("Found existing passage for reading set:", passageResult.data);
+        } else {
+          console.log("No existing passage found for this reading set");
+          // This is a reading set without a passage, leave readingPassageData as null
+          // to trigger the passage input UI
+        }
+      } catch (error) {
+        console.error("Error fetching passage for reading set:", error);
+        toastService.error('Failed to load reading passage');
+      }
+    }
     
     // Fetch questions for this set
     await fetchQuestionsForQuestionSet(set.id);
@@ -3500,7 +3597,24 @@ const AdminPanel = () => {
                         <div className="mb-4">
                           <label className="block text-gray-700 text-sm font-medium mb-2">Reading Passage</label>
                           <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 mb-4 max-h-48 overflow-y-auto">
-                            {readingPassageData.passage_text}
+                            {readingPassageData && (
+                              <>
+                                {/* Try different possible field names for the passage text */}
+                                {readingPassageData.passage_text ? (
+                                  <div dangerouslySetInnerHTML={{ __html: readingPassageData.passage_text }}></div>
+                                ) : readingPassageData.text ? (
+                                  <div dangerouslySetInnerHTML={{ __html: readingPassageData.text }}></div>
+                                ) : readingPassageData.content ? (
+                                  <div dangerouslySetInnerHTML={{ __html: readingPassageData.content }}></div>
+                                ) : readingPassageData.passage && readingPassageData.passage.text ? (
+                                  <div dangerouslySetInnerHTML={{ __html: readingPassageData.passage.text }}></div>
+                                ) : readingPassageData.data && readingPassageData.data.passage_text ? (
+                                  <div dangerouslySetInnerHTML={{ __html: readingPassageData.data.passage_text }}></div>
+                                ) : (
+                                  <div className="text-danger">No passage text found.</div>
+                                )}
+                              </>
+                            )}
                           </div>
                           <button
                             className="text-blue-600 hover:text-blue-800 text-sm font-medium"
@@ -3640,48 +3754,11 @@ const AdminPanel = () => {
                         </div>
                       </div>
                     ) : activeQuestionSubject === 'reading' && readingPassageData ? (
-                      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                        {questionsForPassage.length > 0 ? (
-                          <div className="divide-y divide-gray-200">
-                            {questionsForPassage.map((question, index) => (
-                              <div key={question.id} className="p-4 hover:bg-gray-50">
-                                <div className="flex justify-between items-start">
-                                  <div className="flex-1">
-                                    <p className="text-gray-800 font-medium mb-2">
-                                      {index + 1}. {question.question_text}
-                                    </p>
-                                    <div className="grid grid-cols-1 gap-1 ml-6">
-                                      {question.options.map((option, idx) => (
-                                        <div key={idx} className="flex items-center">
-                                          <div 
-                                            className={`w-4 h-4 rounded-full mr-2 ${option === question.correct_answer ? 'bg-green-600' : 'bg-gray-200'}`}>
-                                          </div>
-                                          <span className={option === question.correct_answer ? 'font-medium' : ''}>
-                                            {option}
-                                          </span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                  <button
-                                    onClick={() => handleRemoveQuestionFromPassage(question.id)}
-                                    className="text-red-500 hover:text-red-700 transition-colors"
-                                    disabled={loadingRemovePassageQuestion[question.id]}
-                                  >
-                                    {loadingRemovePassageQuestion[question.id] ? (
-                                      <div className="w-5 h-5 border-2 border-red-500 border-t-transparent rounded-full animate-spin"></div>
-                                    ) : (
-                                      <Trash2 className="w-5 h-5" />
-                                    )}
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-center py-6 text-gray-500">No questions added yet</p>
-                        )}
-                      </div>
+                      <ReadingPassageQuestions 
+                        questions={questionsForPassage}
+                        onRemoveQuestion={handleRemoveQuestionFromPassage}
+                        loadingRemove={loadingRemovePassageQuestion}
+                      />
                     ) : activeQuestionSetData?.id ? (
                       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
                         {questionsForSet.length > 0 ? (
