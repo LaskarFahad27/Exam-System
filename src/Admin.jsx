@@ -777,7 +777,19 @@ const AdminPanel = () => {
       
       // Format the options for the API
       const formattedOptions = options.map(opt => String(opt));
-      const correctAnswerText = formattedOptions[correctAnswer];
+      
+      // For reading questions, we need to store the actual value of the correct answer
+      let correctAnswerText;
+      
+      if (typeof correctAnswer === 'number') {
+        // If correctAnswer is an index, get the corresponding option value
+        correctAnswerText = formattedOptions[correctAnswer];
+        console.log("Converting index to value for reading question:", correctAnswer, "->", correctAnswerText);
+      } else {
+        // If correctAnswer is already a value, use it directly
+        correctAnswerText = String(correctAnswer);
+        console.log("Using provided value for reading question:", correctAnswerText);
+      }
       
       // Use the API function that requires setId
       const response = await addQuestionToReadingPassage(
@@ -847,6 +859,44 @@ const AdminPanel = () => {
       if (response.success && response.data.questions && response.data.questions.length > 0) {
         console.log("Questions from set:", response.data.questions);
         
+        // Check if this is a reading question set
+        const isReadingSet = response.data.subject_name === 'reading';
+        let readingPassageData = null;
+        
+        // If this is a reading set, fetch the passage first
+        if (isReadingSet) {
+          try {
+            // Import the passage utility
+            const { fetchPassageForReadingSet } = await import('./utils/passageUtils');
+            const passageResult = await fetchPassageForReadingSet(questionSetId);
+            
+            if (passageResult.success && passageResult.data) {
+              readingPassageData = passageResult.data;
+              console.log("Found passage for reading set:", readingPassageData);
+              
+              // Create a special passage "question" that will display at the top of the exam section
+              const passageQuestion = {
+                id: Date.now() + "-passage", // Unique ID for passage
+                question: "Reading Passage",
+                question_text: readingPassageData.passage_text || readingPassageData.text || "",
+                question_type: "reading_passage",
+                passage_id: readingPassageData.id,
+                is_passage: true,
+                options: [],
+                correctAnswer: null,
+                hasMath: false
+              };
+              
+              // Add passage as the first "question" in the section
+              await addQuestion(section, passageQuestion);
+            } else {
+              console.error("Failed to fetch reading passage for set:", questionSetId);
+            }
+          } catch (error) {
+            console.error("Error handling reading passage:", error);
+          }
+        }
+        
         // Add each question to the section
         for (const question of response.data.questions) {
           // Find the index of the correct answer in the options array
@@ -854,21 +904,38 @@ const AdminPanel = () => {
           console.log("Options:", question.options);
           console.log("Correct answer:", question.correct_answer);
           
-          const correctIndex = question.options.findIndex(
-            option => option === question.correct_answer
-          );
-          
-          console.log("Correct index found:", correctIndex);
-          
-          const newQuestion = {
-            id: Date.now() + Math.random(), // Temporary ID
-            question: question.question_text,
-            options: question.options,
-            correctAnswer: correctIndex >= 0 ? correctIndex : 0, // Default to first option if not found
-            hasMath: section === 'math'
-          };
-          
-          await addQuestion(section, newQuestion);
+          // Handle reading questions differently
+          if (isReadingSet && readingPassageData) {
+            // For reading questions, use the actual answer value
+            const newQuestion = {
+              id: Date.now() + Math.random(), // Temporary ID
+              question: question.question_text,
+              options: question.options,
+              correctAnswer: question.correct_answer, // Store actual value for reading
+              question_type: "reading_question",
+              passage_id: readingPassageData.id,
+              hasMath: false
+            };
+            
+            await addQuestion(section, newQuestion);
+          } else {
+            // For regular questions, continue with index-based approach
+            const correctIndex = question.options.findIndex(
+              option => option === question.correct_answer
+            );
+            
+            console.log("Correct index found:", correctIndex);
+            
+            const newQuestion = {
+              id: Date.now() + Math.random(), // Temporary ID
+              question: question.question_text,
+              options: question.options,
+              correctAnswer: correctIndex >= 0 ? correctIndex : 0, // Default to first option if not found
+              hasMath: section === 'math'
+            };
+            
+            await addQuestion(section, newQuestion);
+          }
         }
         
         toastService.success(`Added ${response.data.questions.length} questions to ${section} section`);
