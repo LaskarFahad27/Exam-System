@@ -15,6 +15,88 @@ const MathDisplay = ({ content, block = false, className = '' }) => {
   // Convert to string if it's not already
   const contentStr = typeof content === 'string' ? content : String(content);
   
+  // Special case: Handle backend responses with \n and \e markers
+  if (contentStr.includes("\\n") && contentStr.includes("\\e")) {
+    try {
+      // Handle text with \n and \e markers for plain text
+      // Process math content and plain text separately
+      
+      // First, let's split by possible math content with dollar signs
+      const mathPattern = /(\$[^$]+\$)/g;
+      let parts;
+      
+      // Check if there are dollar-sign delimited expressions
+      if (contentStr.includes("$")) {
+        parts = contentStr.split(mathPattern);
+      } else {
+        // If no dollar signs, just split by the markers
+        parts = [contentStr];
+      }
+      
+      return (
+        <div className={`math-display ${className}`}>
+          {parts.map((part, idx) => {
+            if (part.startsWith('$') && part.endsWith('$')) {
+              // Handle math content
+              // Remove the dollar signs and any \n or \e markers within the math
+              const mathContent = part.slice(1, -1)
+                .replace(/\\n/g, ' ')  // Replace \n with space in math content
+                .replace(/\\e/g, '');  // Remove \e in math content
+              
+              return <InlineMath key={idx} math={mathContent} />;
+            } else if (part.includes("\\n") || part.includes("\\e")) {
+              // Split the text by markers
+              const segments = part.split(/(\\n|\\e)/g);
+              
+              return (
+                <React.Fragment key={idx}>
+                  {segments.map((segment, segIdx) => {
+                    if (segment === "\\n" || segment === "\\e") {
+                      // Skip the markers themselves
+                      return null;
+                    } else if (segment.trim()) {
+                      return <span key={segIdx}>{segment}</span>;
+                    }
+                    return null;
+                  })}
+                </React.Fragment>
+              );
+            }
+            return part;
+          })}
+        </div>
+      );
+    } catch (error) {
+      console.error("Marker rendering failed:", error);
+      // Fall through to default rendering
+    }
+  }
+  
+  // Special case: "Which of the following expressions must be greater than 1" if $(x> y>0)$ and $(p>q> 0)$
+  if ((contentStr.includes("Which of the following") || contentStr.includes("which of the following")) && 
+      contentStr.includes("must be greater than") && contentStr.includes("if $(")) {
+    try {
+      // Handle cases where dollar signs are already in the text from the backend
+      const parts = contentStr.split(/(\$\([^$]+\)\$)/g);
+      
+      return (
+        <div className={`math-display ${className}`}>
+          {parts.map((part, idx) => {
+            if (part.startsWith('$(') && part.endsWith(')$')) {
+              // Remove the $( and )$ to get just the math content
+              const mathContent = part.slice(2, -2);
+              return <InlineMath key={idx} math={mathContent} />;
+            }
+            return part;
+          })}
+        </div>
+      );
+    } catch (error) {
+      console.error("Expression comparison case rendering failed:", error);
+      // Fall through to default rendering
+    }
+  }
+  
   // Special handling for MCQ option with y=fraction in dollar signs
   if (contentStr.match(/^\$y\s*=\s*[+-]?\\frac\{\d+\}\{\d+\}\$$/)) {
     try {
@@ -271,6 +353,37 @@ const MathDisplay = ({ content, block = false, className = '' }) => {
     }
   }
   
+  // Case: "If $(x^2 - 4x + 10) < 7, whichofthefollowingmustbetrue?"
+  if (contentStr.includes("$(x^2") && contentStr.includes("whichofthefollowingmustbetrue?")) {
+    try {
+      // Handle the quadratic inequality case
+      const match = contentStr.match(/(If\s+)\$([^$]+)\$(\s*,\s*whichofthefollowingmustbetrue\?)/);
+      if (match) {
+        return (
+          <div className={`math-display ${className}`}>
+            {match[1]}<InlineMath math={match[2]} />{match[3]}
+          </div>
+        );
+      } else {
+        // If the specific pattern doesn't match, try a more general approach
+        const parts = contentStr.split(/(\$[^$]+\$)/g);
+        return (
+          <div className={`math-display ${className}`}>
+            {parts.map((part, idx) => {
+              if (part.startsWith('$') && part.endsWith('$')) {
+                return <InlineMath key={idx} math={part.slice(1, -1)} />;
+              }
+              return part;
+            })}
+          </div>
+        );
+      }
+    } catch (error) {
+      console.error("Quadratic inequality case rendering failed:", error);
+      // Fall through to default rendering
+    }
+  }
+
   // Case: "x, y & z are consecutive integers. If $0<x<y<z$ and $(x+y+z)$ is an odd integer, which of the following could be the value of z?"
   if (/x,\s*y\s*[&\+]\s*z\s+are\s+consecutive\s+integers/.test(contentStr) && 
       contentStr.includes("$0<x<y<z$") && contentStr.includes("$(x+y+z)$")) {

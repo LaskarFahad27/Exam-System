@@ -423,6 +423,143 @@ const renderMixedTextWithMath = (text) => {
 export const processSpecificExamples = (text) => {
   if (!text) return text;
   
+  // Case: Handle backend response with \n and \e markers
+  if (text.includes("\\n") && text.includes("\\e")) {
+    try {
+      // Special case for the cubic polynomial example
+      if (text.includes("$(x^3+ax^2+bx+c)$") && text.includes("zeroes")) {
+        // Extract the math content and the plain text parts
+        const mathMatch = text.match(/\$\(([^$]+)\)\$/);
+        const parts = text.split(/\\n|\\e/);
+        
+        if (mathMatch && parts.length >= 1) {
+          const mathContent = mathMatch[1];
+          const beforeMath = text.substring(0, text.indexOf("$("));
+          const afterMath = text.substring(text.indexOf(")$") + 2);
+          
+          // Clean up the text parts
+          const cleanedAfterMath = afterMath
+            .replace(/\\n/g, ' ')
+            .replace(/\\e/g, '');
+          
+          return [
+            beforeMath,
+            { type: 'math', content: `(${mathContent})` },
+            cleanedAfterMath
+          ];
+        }
+      }
+      
+      // Process text with \n and \e markers
+      // These markers indicate the beginning and end of plain text in the math content
+      
+      // First, let's split by possible math content with dollar signs
+      const mathPattern = /(\$[^$]+\$)/g;
+      let parts;
+      
+      // Check if there are dollar-sign delimited expressions
+      if (text.includes("$")) {
+        parts = text.split(mathPattern);
+      } else {
+        // If no dollar signs, just split by the markers
+        parts = [text];
+      }
+      
+      const processedParts = [];
+      
+      for (let i = 0; i < parts.length; i++) {
+        const part = parts[i];
+        
+        if (part.startsWith("$") && part.endsWith("$")) {
+          // Handle math content
+          // Remove the dollar signs and any \n or \e markers within the math
+          let mathContent = part.slice(1, -1)
+            .replace(/\\n/g, ' ')  // Replace \n with space in math content
+            .replace(/\\e/g, '');  // Remove \e in math content
+          
+          processedParts.push({ type: 'math', content: mathContent });
+        } else if (part.includes("\\n") || part.includes("\\e")) {
+          // Handle mixed content with markers
+          const segments = part.split(/(\\n|\\e)/g);
+          
+          for (let j = 0; j < segments.length; j++) {
+            const segment = segments[j];
+            if (segment === "\\n" || segment === "\\e") {
+              // Skip the markers themselves
+              continue;
+            } else if (segment.trim()) {
+              processedParts.push(segment);
+            }
+          }
+        } else if (part.trim()) {
+          // Add regular text
+          processedParts.push(part);
+        }
+      }
+      
+      return processedParts;
+    } catch (error) {
+      console.error("Marker processing failed:", error);
+    }
+  }
+  
+  // Case: "Which of the following expressions must be greater than 1" if $(x> y>0)$ and $(p>q> 0)$
+  if ((text.includes("Which of the following") || text.includes("which of the following")) && 
+      text.includes("must be greater than") && text.includes("if $(")) {
+    try {
+      // Match the pattern with expressions in $( )$ format from backend
+      const parts = text.split(/(\$\([^$]+\)\$)/g);
+      const processedParts = [];
+      
+      for (let i = 0; i < parts.length; i++) {
+        const part = parts[i];
+        if (part.startsWith("$(") && part.endsWith(")$")) {
+          // Process math content - remove the $( and )$
+          processedParts.push({ type: 'math', content: part.slice(2, -2) });
+        } else {
+          processedParts.push(part);
+        }
+      }
+      
+      return processedParts;
+    } catch (error) {
+      console.error("Expression comparison case failed:", error);
+    }
+  }
+  
+  // Case: "If $(x^2 - 4x + 10) < 7, whichofthefollowingmustbetrue?"
+  if (text.includes("$(x^2") && text.includes("whichofthefollowingmustbetrue?")) {
+    try {
+      // Match the pattern specifically
+      const match = text.match(/(If\s+)\$([^$]+)\$(\s*,\s*whichofthefollowingmustbetrue\?)/);
+      if (match) {
+        return [
+          match[1], 
+          { type: 'math', content: match[2] },
+          match[3]
+        ];
+      } else {
+        // Try a more general approach with dollar signs
+        const parts = text.split(/(\$[^$]+\$)/g);
+        const processedParts = [];
+        
+        for (let i = 0; i < parts.length; i++) {
+          const part = parts[i];
+          if (part.startsWith("$") && part.endsWith("$")) {
+            // Process math content
+            processedParts.push({ type: 'math', content: part.slice(1, -1) });
+          } else {
+            processedParts.push(part);
+          }
+        }
+        
+        return processedParts;
+      }
+    } catch (error) {
+      console.error("Quadratic inequality case failed:", error);
+    }
+  }
+  
   // Case: "If x > y > 0x > y > 0p > q > 0 and"
   if (/If\s+x\s*>\s*y\s*>\s*0x\s*>\s*y\s*>\s*0p\s*>\s*q\s*>\s*0/.test(text)) {
     return [
@@ -865,6 +1002,40 @@ export const processCoefficientExpressions = (text) => {
  */
 export const processMixedExpressions = (text) => {
   if (!text) return text;
+  
+  // Special handling for quadratic inequality questions
+  // Case: "If $(x^2 - 4x + 10) < 7, whichofthefollowingmustbetrue?"
+  if (text.startsWith("If ") && 
+      (text.includes("$") && text.includes("<") || text.includes(">")) && 
+      (text.includes("x^2") || text.includes("which") || text.includes("following"))) {
+    
+    // For dollar-sign wrapped expressions
+    const dollarWrappedPattern = /\$(.*?)\$/g;
+    const matches = text.match(dollarWrappedPattern);
+    
+    if (matches) {
+      // Split the text into parts
+      const parts = text.split(dollarWrappedPattern);
+      
+      // Create an array to hold the processed parts
+      const processedParts = [];
+      
+      // Add the first text part
+      if (parts[0]) processedParts.push(parts[0]);
+      
+      // Process each matched math expression and text part
+      for (let i = 0; i < matches.length; i++) {
+        // Add the math expression (remove the dollar signs)
+        const mathExpr = matches[i].slice(1, -1);
+        processedParts.push({ type: 'math', content: mathExpr });
+        
+        // Add the next text part if it exists
+        if (parts[i + 1]) processedParts.push(parts[i + 1]);
+      }
+      
+      return processedParts;
+    }
+  }
   
   // Check for conditional expressions like "If... then..."
   if ((text.includes('If ') || text.includes('if ')) && 
