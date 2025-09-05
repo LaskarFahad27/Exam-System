@@ -10,6 +10,7 @@ import { SecurityModalContainer } from './utils/securityModal.jsx';
 import MathDisplay from './components/MathDisplay';
 import { renderContent, renderMathContent } from './utils/mathUtils';
 import QuestionImage from './components/QuestionImage';
+import PassageBar from './components/PassageBar';
 
 // Using mathUtils.jsx for all math rendering functionality
 
@@ -35,6 +36,10 @@ const OnlineExam = () => {
   const [examCompleted, setExamCompleted] = useState(false);
   const [examResults, setExamResults] = useState(null);
   const [loadingResults, setLoadingResults] = useState(false);
+  
+  // Reading passage state
+  const [passages, setPassages] = useState([]);
+  const [currentPassage, setCurrentPassage] = useState(null);
 
   // Initialize security features
   useEffect(() => {
@@ -279,13 +284,14 @@ const OnlineExam = () => {
       const response = await getNextSection(userExamId);
       
       if (response.success) {
-        const { section, questions, total_sections, current_section_number, sections_completed } = response.data;
+        const { section, questions, passages, total_sections, current_section_number, sections_completed } = response.data;
         
         console.log('Next section loaded:', {
           sectionName: section.name,
           currentSectionNumber: current_section_number,
           totalSections: total_sections,
-          sectionsCompleted: sections_completed
+          sectionsCompleted: sections_completed,
+          passages: passages
         });
         
         // If the previous section for this exam was marked as submitted but we're still getting a new section,
@@ -311,6 +317,27 @@ const OnlineExam = () => {
         setTotalSections(total_sections);
         setSectionsCompleted(sections_completed);
         setAnswers({}); // Reset answers for new section
+        
+        // Handle reading passages if present
+        if (passages && passages.length > 0) {
+          setPassages(passages);
+          setCurrentPassage(passages[0]); // Set the first passage as current
+          
+          // If passages contain questions, update our questions array
+          const passageQuestions = [];
+          passages.forEach(passage => {
+            if (passage.questions && passage.questions.length > 0) {
+              passageQuestions.push(...passage.questions);
+            }
+          });
+          
+          if (passageQuestions.length > 0) {
+            setQuestions(passageQuestions);
+          }
+        } else {
+          setPassages([]);
+          setCurrentPassage(null);
+        }
         
         // Scroll to top without refreshing the page
         window.scrollTo({
@@ -937,8 +964,16 @@ const OnlineExam = () => {
         </div>
       </div>
 
-      {/* Footer */}
-   
+      {/* Reading Passage Bar - only show for reading sections */}
+      {currentSection && 
+       currentSection.name && 
+       currentSection.name.toLowerCase() === 'reading' && 
+       currentPassage && (
+        <PassageBar 
+          passageText={currentPassage.passage_text} 
+          passageTitle={currentPassage.title} 
+        />
+      )}
     </div>
   );
 };
