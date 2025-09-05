@@ -22,4 +22,52 @@
 /* Fix for fractions to improve readability */
 .math-display .katex .mfrac {
   font-size: 105%;
+  min-width: 0.6em;
+}
+
+/* Fix for spaces in equations */
+.math-display .katex .mspace {
+  margin-right: 0.15em;
+  margin-left: 0.15em;
+}
+
+/* Ensure dollar-sign math expressions maintain proper spacing */
+.math-display .katex-inline {
+  margin: 0 0.1em;
+  vertical-align: -0.1em;
+}
+
+/* Improve rendering of derivative notation */
+.math-display .katex .frac-line {
+  border-bottom-width: 0.08em;
+}
+
+/* Better alignment of multi-character subscripts */
+.math-display .katex .msubsup > .msubsup {
+  margin-right: 0.2em;
+}
+
+/* Improve square root rendering */
+.math-display .katex .sqrt {
+  padding-top: 0.1em;
+}
+
+.math-display .katex .sqrt > .sqrt-sign {
+  position: relative;
+}
+
+/* Enhance readability of complex fractions */
+.math-display .katex .mfrac .frac-line {
+  display: inline-block;
+  width: 100%;
+}
+
+/* Proper spacing for functions like sin, cos, etc */
+.math-display .katex .mop {
+  margin-right: 0.15em;
+}
+
+/* Better spacing for nested fractions */
+.math-display .katex .mfrac .mfrac {
+  font-size: 95%;
 }

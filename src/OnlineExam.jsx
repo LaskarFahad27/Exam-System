@@ -855,28 +855,37 @@ const OnlineExam = () => {
                   
                   {q.question_type === 'mcq' && q.options && (
                     <div className="space-y-3">
-                      {q.options.map((option, optIndex) => (
-                        <label
-                          key={optIndex}
-                          className={`flex items-center space-x-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                            answers[q.id] === option.text
-                              ? 'bg-blue-50 border-blue-300 text-blue-900'
-                              : 'hover:bg-gray-50 border-gray-200'
-                          }`}
-                        >
-                          <input
-                            type="radio"
-                            name={`question-${q.id}`}
-                            value={option.text}
-                            checked={answers[q.id] === option.text}
-                            onChange={(e) => handleAnswerChange(q.id, e.target.value)}
-                            className="text-blue-600"
-                          />
-                          <span className="flex-1">
-                            <MathDisplay content={option.text} />
-                          </span>
-                        </label>
-                      ))}
+                      {q.options.map((option, optIndex) => {
+                        // Handle both formats: option as string or option as object with text property
+                        const optionText = typeof option === 'string' ? option : option.text;
+                        
+                        // Special handling for fraction options in dollar signs
+                        let optionDisplay = optionText;
+                        let optionValue = optionText;
+                        
+                        return (
+                          <label
+                            key={optIndex}
+                            className={`flex items-center space-x-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                              answers[q.id] === optionValue
+                                ? 'bg-blue-50 border-blue-300 text-blue-900'
+                                : 'hover:bg-gray-50 border-gray-200'
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name={`question-${q.id}`}
+                              value={optionValue}
+                              checked={answers[q.id] === optionValue}
+                              onChange={(e) => handleAnswerChange(q.id, e.target.value)}
+                              className="text-blue-600"
+                            />
+                            <span className="flex-1">
+                              <MathDisplay content={optionDisplay} />
+                            </span>
+                          </label>
+                        );
+                      })}
                     </div>
                   )}
                   

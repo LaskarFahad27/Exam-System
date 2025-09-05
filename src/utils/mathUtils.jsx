@@ -3,6 +3,41 @@ import { InlineMath, BlockMath } from 'react-katex';
 import 'katex/dist/katex.min.css';
 
 /**
+ * Ensures braces in LaTeX expressions are properly balanced
+ * @param {string} text - LaTeX expression to process
+ * @returns {string} Processed LaTeX with balanced braces
+ */
+const balanceBraces = (text) => {
+  if (!text) return text;
+  
+  // Count opening and closing braces
+  let openBraces = 0;
+  let closeBraces = 0;
+  
+  for (const char of text) {
+    if (char === '{') openBraces++;
+    if (char === '}') closeBraces++;
+  }
+  
+  // Add missing closing braces
+  let result = text;
+  for (let i = 0; i < (openBraces - closeBraces); i++) {
+    result += '}';
+  }
+  
+  // Add missing opening braces (at the beginning)
+  if (closeBraces > openBraces) {
+    let prefix = '';
+    for (let i = 0; i < (closeBraces - openBraces); i++) {
+      prefix += '{';
+    }
+    result = prefix + result;
+  }
+  
+  return result;
+};
+
+/**
  * Renders mathematical content using KaTeX
  * @param {string} text - The text containing math expressions
  * @param {boolean} block - Whether to render as a block (centered) or inline
@@ -11,10 +46,34 @@ import 'katex/dist/katex.min.css';
 export const renderMathContent = (text, block = false) => {
   if (!text || typeof text !== 'string') return text;
   
-  // Handle special cases first
-  if (text.includes("What") && text.includes("is") && text.includes("the") && text.includes("value") && text.includes("of")) {
+  // Handle special domain of function cases
+  if (text.includes("domain of the function") && text.includes("$")) {
+    return renderMixedTextWithMath(text);
+  }
+  
+  // Handle special question cases 
+  if ((text.includes("What") && text.includes("is") && text.includes("the") && 
+       (text.includes("value") || text.includes("domain"))) || 
+      text.includes("Find the")) {
     // This is likely a question that we should not process as pure LaTeX
     return renderMixedTextWithMath(text);
+  }
+  
+  // Special case for complex fractions with square roots like in the example
+  if (text.includes("\\frac") && text.includes("\\sqrt")) {
+    // Render directly if it's pure LaTeX
+    try {
+      // Ensure proper formatting of the LaTeX expression
+      const cleanedText = text
+        .replace(/\\frac([^{])/g, '\\frac{$1}') // Add braces for single character numerators
+        .replace(/\\frac\{([^}]+)\}([^{])/g, '\\frac{$1}{$2}') // Add braces for single character denominators
+        .replace(/\\sqrt([^{])/g, '\\sqrt{$1}'); // Add braces for single character sqrt arguments
+      
+      return block ? <BlockMath math={cleanedText} /> : <InlineMath math={cleanedText} />;
+    } catch (error) {
+      console.error('Complex fraction rendering failed:', error);
+      // Continue with regular processing
+    }
   }
   
   // Pre-process text to handle specific notations in exam questions
@@ -145,6 +204,27 @@ export const renderMathContent = (text, block = false) => {
 export const containsMathExpressions = (text) => {
   if (!text || typeof text !== 'string') return false;
   
+  // Check for dollar sign LaTeX notation
+  if (text.includes('$') && text.split('$').length > 2) {
+    return true;
+  }
+  
+  // Check for [math] tags
+  if (text.includes('[math]') && text.includes('[/math]')) {
+    return true;
+  }
+  
+  // Check for common LaTeX commands
+  if (text.includes('\\frac') || 
+      text.includes('\\sqrt') || 
+      text.includes('\\cdot') ||
+      text.includes('\\pi') ||
+      text.includes('\\sin') ||
+      text.includes('\\cos') ||
+      text.includes('\\tan')) {
+    return true;
+  }
+  
   // Regex to detect math symbols and expressions
   const mathSymbols = /[√∛∜⁵²³⁴⁵₂₃π]|x²|x³|e\^|d\/dx|\^|\/|\_|\\frac|\\sqrt|tan|sin|cos|log|ln/;
   
@@ -159,8 +239,74 @@ export const containsMathExpressions = (text) => {
 const renderMixedTextWithMath = (text) => {
   if (!text || typeof text !== 'string') return text;
   
+  // Special handling for function inverse problems
+  if (text.includes("inverse of the function") && text.includes("\\frac")) {
+    // Try to match the pattern for inverse function questions with fractions
+    const inversePattern = /What\s+is\s+the\s+inverse\s+of\s+the\s+function\s+(?:\$)?f\(x\)\s*=\s*\\frac\{([^{}]+)\}\{([^{}]+)\}(?:\$)?/i;
+    const match = text.match(inversePattern);
+    
+    if (match) {
+      try {
+        return (
+          <>
+            What is the inverse of the function <InlineMath math={"f(x)=\\frac{" + match[1] + "}{" + match[2] + "}"} />?
+          </>
+        );
+      } catch (error) {
+        console.error('Inverse function rendering failed:', error);
+        // Continue with regular pattern matching
+      }
+    }
+  }
+  
+  // Special handling for domain of function with R(x)
+  if (text.includes("domain of the function") && text.includes("R(x)")) {
+    // Try to match the specific pattern from your example
+    const domainPattern = /What\s+is\s+the\s+domain\s+of\s+the\s+function\s+(?:\$)?R\(x\)\s*=\s*\\frac\{\\sqrt\{([^}]+)\}\}\{([^}]+)\}(?:\$)?/i;
+    const match = text.match(domainPattern);
+    
+    if (match) {
+      try {
+        return (
+          <>
+            What is the domain of the function <InlineMath math={"R(x) = \\frac{\\sqrt{" + match[1] + "}}{" + match[2] + "}"} />?
+          </>
+        );
+      } catch (error) {
+        console.error('Special domain function rendering failed:', error);
+        // Continue with regular pattern matching
+      }
+    }
+  }
+  
   // First, try to identify common question patterns
   const questionPatterns = [
+    // "What is the inverse of the function..." pattern (for fraction expressions)
+    {
+      regex: /(What\s+is\s+the\s+inverse\s+of\s+the\s+function\s+)(\$f\(x\)\s*=\s*\\frac\{[^{}]+\}\{[^{}]+\}\$)/i,
+      process: (match, textPart, mathPart) => {
+        // Extract the math content from within the dollar signs
+        const mathContent = mathPart.slice(1, -1);
+        return (
+          <>
+            {textPart} <InlineMath math={mathContent} />?
+          </>
+        );
+      }
+    },
+    // "What is the domain of the function..." pattern (for complex fraction expressions)
+    {
+      regex: /(What\s+is\s+the\s+domain\s+of\s+the\s+function\s+)(\$[^$]+\$)/i,
+      process: (match, textPart, mathPart) => {
+        // Extract the math content from within the dollar signs
+        const mathContent = mathPart.slice(1, -1);
+        return (
+          <>
+            {textPart} <InlineMath math={mathContent} />
+          </>
+        );
+      }
+    },
     // "What is the value of d/dx(...)" pattern
     {
       regex: /(What\s+is\s+the\s+value\s+of\s+)(d\/dx\([^)]+\))/i,
@@ -213,8 +359,34 @@ const renderMixedTextWithMath = (text) => {
     /e\^\([^)]+\)/g,          // e^(...)
     /e\^x/g,                  // e^x
     /\\sqrt\{[^}]+\}/g,       // Square roots
-    /\b[a-z]\^[0-9]+\b/g      // Simple powers like x^2
+    /\\frac\{[^{}]+\}\{[^{}]+\}/g, // Fractions
+    /\b[a-z]\^[0-9]+\b/g,      // Simple powers like x^2
+    /[<>]=?/g                // Inequality signs
   ];
+  
+  // Special handling for domain of function questions like the example you provided
+  if (text.toLowerCase().includes("domain of the function") && text.includes("$")) {
+    // Try to extract and render the LaTeX part directly
+    const dollarSignMatch = text.match(/\$(.*?)\$/);
+    if (dollarSignMatch && dollarSignMatch[1]) {
+      const beforeMath = text.substring(0, text.indexOf('$'));
+      const mathPart = dollarSignMatch[1];
+      const afterMath = text.substring(text.indexOf('$', text.indexOf('$') + 1) + 1);
+      
+      try {
+        return (
+          <>
+            {beforeMath}
+            <InlineMath math={mathPart} />
+            {afterMath}
+          </>
+        );
+      } catch (error) {
+        console.error('Special domain question rendering failed:', error);
+        // Fall through to regular processing
+      }
+    }
+  }
   
   // Create an array of text and math segments
   let segments = [text];
@@ -244,12 +416,280 @@ const renderMixedTextWithMath = (text) => {
 };
 
 /**
+ * Helper function to debug complex math expressions
+ * @param {string} text - The original text
+ * @param {string} operation - The operation being performed
+ * @param {string} processedText - The processed text
+ */
+const debugMathExpression = (text, operation, processedText) => {
+  // Only log for certain complex expressions to avoid console spam
+  if (text.includes('\\frac') && text.includes('\\sqrt')) {
+    console.log(`Math Rendering (${operation}):`, {
+      original: text,
+      processed: processedText
+    });
+  }
+};
+
+/**
+ * Processes text with potential inequality expressions
+ * @param {string} text - The text to process
+ * @returns {React.ReactNode} Processed content with rendered inequalities
+ */
+export const processInequalities = (text) => {
+  if (!text) return text;
+  
+  // Check if the text contains both inequalities and math expressions
+  if ((text.includes('<') || text.includes('>') || 
+       text.includes('\\leq') || text.includes('\\geq')) && 
+      (text.includes('\\frac') || text.includes('^') || text.includes('\\sqrt'))) {
+    
+    // For expressions like $x < \frac{5}{2}$
+    const dollarWrappedPattern = /\$(.*?)\$/g;
+    const matches = text.match(dollarWrappedPattern);
+    
+    if (matches) {
+      // Split the text into parts
+      const parts = text.split(dollarWrappedPattern);
+      
+      // Create an array to hold the processed parts
+      const processedParts = [];
+      
+      // Add the first text part
+      if (parts[0]) processedParts.push(parts[0]);
+      
+      // Process each matched math expression and text part
+      for (let i = 0; i < matches.length; i++) {
+        // Add the math expression (remove the dollar signs)
+        const mathExpr = matches[i].slice(1, -1);
+        processedParts.push({ type: 'math', content: mathExpr });
+        
+        // Add the next text part if it exists
+        if (parts[i + 1]) processedParts.push(parts[i + 1]);
+      }
+      
+      return processedParts;
+    }
+  }
+  
+  return text;
+};
+
+/**
+ * Process word problems containing fractions
+ * @param {string} text - The text to process
+ * @returns {React.ReactNode} Processed content with fractions properly rendered
+ */
+export const processWordProblemWithFractions = (text) => {
+  if (!text) return text;
+  
+  // Check if it's a word problem with fractions
+  if ((text.includes('football') || text.includes('basketball') || 
+       text.includes('game') || text.includes('wins') ||
+       text.includes('ratio') || text.includes('fraction') ||
+       text.includes('percentage') || text.includes('probability')) && 
+      (text.includes('\\frac') || text.includes('/'))) {
+    
+    // For dollar-sign wrapped fractions
+    const dollarWrappedPattern = /\$(.*?)\$/g;
+    const matches = text.match(dollarWrappedPattern);
+    
+    if (matches) {
+      // Split the text into parts
+      const parts = text.split(dollarWrappedPattern);
+      
+      // Create an array to hold the processed parts
+      const processedParts = [];
+      
+      // Add the first text part
+      if (parts[0]) processedParts.push(parts[0]);
+      
+      // Process each matched math expression and text part
+      for (let i = 0; i < matches.length; i++) {
+        // Add the math expression (remove the dollar signs)
+        const mathExpr = matches[i].slice(1, -1);
+        processedParts.push({ type: 'math', content: mathExpr });
+        
+        // Add the next text part if it exists
+        if (parts[i + 1]) processedParts.push(parts[i + 1]);
+      }
+      
+      return processedParts;
+    }
+    
+    // For expressions with simple fractions not in dollar signs (like 3/4)
+    const simplePattern = /(\d+)\/(\d+)/g;
+    if (text.match(simplePattern)) {
+      // Split by the simple fraction pattern
+      const parts = text.split(simplePattern);
+      const matches = text.match(simplePattern) || [];
+      
+      if (matches.length > 0) {
+        const processedParts = [];
+        
+        // Add the first part
+        if (parts[0]) processedParts.push(parts[0]);
+        
+        // Add alternating fractions and text parts
+        let matchIndex = 0;
+        for (let i = 1; i < parts.length; i += 3) { // Skip groups of 3 for regex capture groups
+          // Add the fraction
+          const fraction = matches[matchIndex];
+          if (fraction) {
+            const [numerator, denominator] = fraction.split('/');
+            processedParts.push({ type: 'math', content: `\\frac{${numerator}}{${denominator}}` });
+            matchIndex++;
+          }
+          
+          // Add the next text part
+          if (i + 2 < parts.length && parts[i + 2]) {
+            processedParts.push(parts[i + 2]);
+          }
+        }
+        
+        return processedParts;
+      }
+    }
+  }
+  
+  return text;
+};
+
+/**
+ * Process mixed mathematical expressions (equations, inequalities, etc.)
+ * @param {string} text - The text to process
+ * @returns {React.ReactNode} Processed content with mixed expressions properly rendered
+ */
+export const processMixedExpressions = (text) => {
+  if (!text) return text;
+  
+  // Check for conditional expressions like "If... then..."
+  if ((text.includes('If ') || text.includes('if ')) && 
+      (text.includes('then ') || text.includes('what is '))) {
+    
+    // For dollar-sign wrapped expressions
+    const dollarWrappedPattern = /\$(.*?)\$/g;
+    const matches = text.match(dollarWrappedPattern);
+    
+    if (matches) {
+      // Split the text into parts
+      const parts = text.split(dollarWrappedPattern);
+      
+      // Create an array to hold the processed parts
+      const processedParts = [];
+      
+      // Add the first text part
+      if (parts[0]) processedParts.push(parts[0]);
+      
+      // Process each matched math expression and text part
+      for (let i = 0; i < matches.length; i++) {
+        // Add the math expression (remove the dollar signs)
+        const mathExpr = matches[i].slice(1, -1);
+        processedParts.push({ type: 'math', content: mathExpr });
+        
+        // Add the next text part if it exists
+        if (parts[i + 1]) processedParts.push(parts[i + 1]);
+      }
+      
+      return processedParts;
+    }
+  }
+  
+  // Check for combined expressions (equations + inequalities)
+  if ((text.includes('=') && 
+      (text.includes('<') || text.includes('>') || 
+       text.includes('\\leq') || text.includes('\\geq'))) ||
+       text.includes('\\equiv')) {
+    
+    // For dollar-sign wrapped expressions
+    const dollarWrappedPattern = /\$(.*?)\$/g;
+    const matches = text.match(dollarWrappedPattern);
+    
+    if (matches) {
+      // Similar processing as above
+      const parts = text.split(dollarWrappedPattern);
+      const processedParts = [];
+      
+      if (parts[0]) processedParts.push(parts[0]);
+      
+      for (let i = 0; i < matches.length; i++) {
+        const mathExpr = matches[i].slice(1, -1);
+        processedParts.push({ type: 'math', content: mathExpr });
+        
+        if (parts[i + 1]) processedParts.push(parts[i + 1]);
+      }
+      
+      return processedParts;
+    }
+  }
+  
+  return text;
+};
+
+/**
  * Renders content with math expressions if needed
  * @param {string} text - The text that may contain math expressions
  * @returns {React.ReactNode} Rendered content
  */
 export const renderContent = (text) => {
   if (!text || typeof text !== 'string') return text;
+  
+  // Process inequalities first
+  const processedInequalities = processInequalities(text);
+  
+  // If the text was processed as an inequality, render it accordingly
+  if (Array.isArray(processedInequalities)) {
+    return (
+      <React.Fragment>
+        {processedInequalities.map((part, index) => {
+          if (typeof part === 'string') {
+            return <React.Fragment key={index}>{part}</React.Fragment>;
+          } else if (part.type === 'math') {
+            return <InlineMath key={index} math={part.content} />;
+          }
+          return null;
+        })}
+      </React.Fragment>
+    );
+  }
+  
+  // Process word problems with fractions
+  const processedWordProblem = processWordProblemWithFractions(text);
+  
+  // If the text was processed as a word problem, render it accordingly
+  if (Array.isArray(processedWordProblem)) {
+    return (
+      <React.Fragment>
+        {processedWordProblem.map((part, index) => {
+          if (typeof part === 'string') {
+            return <React.Fragment key={index}>{part}</React.Fragment>;
+          } else if (part.type === 'math') {
+            return <InlineMath key={index} math={part.content} />;
+          }
+          return null;
+        })}
+      </React.Fragment>
+    );
+  }
+  
+  // Process mixed expressions (equations, inequalities, etc.)
+  const processedMixedExpr = processMixedExpressions(text);
+  
+  // If the text was processed as a mixed expression, render it accordingly
+  if (Array.isArray(processedMixedExpr)) {
+    return (
+      <React.Fragment>
+        {processedMixedExpr.map((part, index) => {
+          if (typeof part === 'string') {
+            return <React.Fragment key={index}>{part}</React.Fragment>;
+          } else if (part.type === 'math') {
+            return <InlineMath key={index} math={part.content} />;
+          }
+          return null;
+        })}
+      </React.Fragment>
+    );
+  }
   
   // For explicit LaTeX notation, render it directly
   if (text.includes('\\frac') || text.includes('\\sqrt') || text.includes('\\cdot')) {
@@ -258,6 +698,104 @@ export const renderContent = (text) => {
     } catch (error) {
       console.error('Error rendering explicit LaTeX:', error);
       // Continue with normal processing if direct rendering fails
+    }
+  }
+  
+  // Special case for MCQ options with just a fraction in dollar signs
+  if (text.match(/^\$\\frac\{[^{}]+\}\{[^{}]+\}\$$/)) {
+    try {
+      const mathContent = text.slice(1, -1); // Remove the dollar signs
+      return <InlineMath math={mathContent} />;
+    } catch (error) {
+      console.error('Error rendering pure fraction:', error);
+      // Continue with normal processing
+    }
+  }
+
+  // Check for dollar sign LaTeX notation: $...$ for inline math
+  if (text.includes('$') && text.split('$').length > 2) {
+    try {
+      // Special case for fractions inside dollar signs
+      if (text.includes('\\frac')) {
+        // Try to extract just the fraction part for better rendering
+        const fracPattern = /\$([^$]*\\frac\{[^{}]+\}\{[^{}]+\}[^$]*)\$/;
+        const fracMatch = text.match(fracPattern);
+        
+        if (fracMatch) {
+          // If we have text before or after the dollar signs
+          const beforeDollar = text.substring(0, text.indexOf('$'));
+          const afterDollar = text.substring(text.lastIndexOf('$') + 1);
+          
+          // Return the text with the properly rendered fraction
+          return (
+            <>
+              {beforeDollar}<InlineMath math={fracMatch[1]} />{afterDollar}
+            </>
+          );
+        }
+      }
+      
+      // Split the text by $ delimiter to separate math and regular text
+      const parts = text.split(/(\$[^$]*?[^\\]\$|\$\$)/g).filter(Boolean);
+      
+      // Map each part to either text or math component
+      return (
+        <>
+          {parts.map((part, idx) => {
+            if (part.startsWith('$') && part.endsWith('$')) {
+              // Handle the math content inside dollar signs
+              let mathContent = part.slice(1, -1); // Remove $ symbols
+              
+              // Pre-process specific LaTeX patterns for better rendering
+              if (mathContent.includes('\\frac') || mathContent.includes('/')) {
+                mathContent = mathContent
+                  // Convert simple fractions like a/b to \frac{a}{b}
+                  .replace(/([a-zA-Z0-9]+)\/([a-zA-Z0-9]+)/g, '\\frac{$1}{$2}');
+                
+                // Fix common issues with fractions
+                mathContent = mathContent
+                  .replace(/\\frac([^{])/g, '\\frac{$1}') // Add braces for single character numerators
+                  .replace(/\\frac\{([^}]+)\}([^{])/g, '\\frac{$1}{$2}'); // Add braces for single character denominators
+              }
+              
+              // Handle square roots with \sqrt command
+              if (mathContent.includes('\\sqrt')) {
+                mathContent = mathContent
+                  // Ensure proper bracing for sqrt arguments
+                  .replace(/\\sqrt\s*([a-zA-Z0-9]+)/g, '\\sqrt{$1}');
+              }
+
+              // Handle nested expressions in fractions and square roots
+              if (mathContent.includes('{') && mathContent.includes('}')) {
+                // Make sure nested expressions have proper LaTeX formatting
+                mathContent = balanceBraces(mathContent);
+              }
+              
+              return <InlineMath key={idx} math={mathContent} />;
+            }
+            return part;
+          })}
+        </>
+      );
+    } catch (error) {
+      console.error('Error rendering dollar sign LaTeX:', error, text);
+      // If complex processing fails, try a simpler approach
+      try {
+        // Simpler approach for dollar sign notation
+        const parts = text.split('$');
+        if (parts.length >= 3) {
+          return (
+            <>
+              {parts[0]}
+              <InlineMath math={parts[1]} />
+              {parts.slice(2).join('$')}
+            </>
+          );
+        }
+      } catch (secondError) {
+        console.error('Fallback dollar sign rendering failed:', secondError);
+      }
+      // Continue with normal processing if dollar notation rendering fails
     }
   }
   
