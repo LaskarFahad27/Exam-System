@@ -1,4 +1,4 @@
-export const BACKEND_URL = "http://172.232.104.77:5001/api";
+export const BACKEND_URL = "http://localhost:5001/api";
 
 //............Reading Passages.....................
 
