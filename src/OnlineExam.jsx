@@ -805,7 +805,6 @@ const OnlineExam = () => {
               <span className="mb-1 sm:mb-0">Answer all questions to the best of your ability</span>
               <span>Duration: {currentSection.duration_minutes} minutes</span>
             </div>
-            
             {/* Time progress bar */}
             <div className="mt-3">
               <div className="h-1.5 w-full bg-white bg-opacity-30 rounded-full overflow-hidden">
@@ -826,6 +825,16 @@ const OnlineExam = () => {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* PassageBar for reading section, immediately after section header and before questions */}
+      {currentSection && currentSection.name && currentSection.name.toLowerCase() === 'reading' && currentPassage && (
+        <div className="mt-4">
+          <PassageBar 
+            passageText={currentPassage.passage_text} 
+            passageTitle={currentPassage.title} 
+          />
         </div>
       )}
 
@@ -964,16 +973,7 @@ const OnlineExam = () => {
         </div>
       </div>
 
-      {/* Reading Passage Bar - only show for reading sections */}
-      {currentSection && 
-       currentSection.name && 
-       currentSection.name.toLowerCase() === 'reading' && 
-       currentPassage && (
-        <PassageBar 
-          passageText={currentPassage.passage_text} 
-          passageTitle={currentPassage.title} 
-        />
-      )}
+  {/* PassageBar moved above, right after progress bar */}
     </div>
   );
 };
