@@ -365,12 +365,9 @@ export async function createQuestions(sectionId, question, type, options, answer
   if (!adminToken) throw new Error("Authentication required");
 
   try {
-    console.log("Creating question with answer index:", answer);
-    
-    // Get the correct answer text from the options array
+    // Always send options as array of strings
+    // Always send correct_answer as the string value
     const correctAnswer = typeof answer === 'number' && options[answer] ? options[answer] : answer;
-    console.log("Correct answer being sent to API:", correctAnswer);
-    
     const response = await fetch(`${BACKEND_URL}/exams/sections/${sectionId}/questions`, {
       method: "POST",
       headers: {
@@ -380,8 +377,8 @@ export async function createQuestions(sectionId, question, type, options, answer
       body: JSON.stringify({
         question_text: question,
         question_type: type,
-        options: options.map(opt => ({ text: opt })), 
-        correct_answer: answer  // Keep as index for consistency
+        options: options, // array of strings
+        correct_answer: correctAnswer // string value
       }),
     });
 

@@ -40,7 +40,9 @@ const AdminPanel = () => {
   const [showQuestionList, setShowQuestionList] = useState(false);
   const [questionsForSet, setQuestionsForSet] = useState([]);
   const [loadingQuestions, setLoadingQuestions] = useState(false);
-  const [loadingAddSetQuestion, setLoadingAddSetQuestion] = useState(false);
+  // Per-question-set loading and success state for adding questions
+  const [loadingAddSetQuestion, setLoadingAddSetQuestion] = useState({}); // { [setId]: true/false }
+  const [successAddSetQuestion, setSuccessAddSetQuestion] = useState({}); // { [setId]: true/false }
   const [loadingRemoveSetQuestion, setLoadingRemoveSetQuestion] = useState({});
   const [questionSetSearch, setQuestionSetSearch] = useState('');
   const [filteredQuestionSets, setFilteredQuestionSets] = useState([]);
@@ -1023,44 +1025,50 @@ const AdminPanel = () => {
 
   // Add questions from a question set to a section
   const addQuestionsFromSet = async (questionSetId, section) => {
-    try {
+  setLoadingAddSetQuestion(prev => ({ ...prev, [questionSetId]: true }));
+  setSuccessAddSetQuestion(prev => ({ ...prev, [questionSetId]: false }));
+  try {
       // First fetch the questions in the set
       const response = await fetchQuestionsForSet(questionSetId);
-      
       if (response.success && response.data.questions && response.data.questions.length > 0) {
         console.log("Questions from set:", response.data.questions);
-        
-        // Add each question to the section
-        for (const question of response.data.questions) {
-          // Find the index of the correct answer in the options array
-          console.log("Question:", question);
-          console.log("Options:", question.options);
-          console.log("Correct answer:", question.correct_answer);
-          
+        // Prepare all new questions
+        const newQuestions = response.data.questions.map((question) => {
           const correctIndex = question.options.findIndex(
             option => option === question.correct_answer
           );
-          
-          console.log("Correct index found:", correctIndex);
-          
-          const newQuestion = {
+          return {
             id: Date.now() + Math.random(), // Temporary ID
             question: question.question_text,
             options: question.options,
             correctAnswer: correctIndex >= 0 ? correctIndex : 0, // Default to first option if not found
             hasMath: section === 'math'
           };
-          
-          await addQuestion(section, newQuestion);
+        });
+        // Add all questions in parallel for speed
+        const results = await Promise.allSettled(
+          newQuestions.map(q => addQuestion(section, q))
+        );
+        const successCount = results.filter(r => r.status === 'fulfilled').length;
+        const failCount = results.length - successCount;
+        if (successCount > 0) {
+          toastService.success(`Added ${successCount} questions to ${section} section`);
+          setSuccessAddSetQuestion(prev => ({ ...prev, [questionSetId]: true }));
+          setTimeout(() => {
+            setSuccessAddSetQuestion(prev => ({ ...prev, [questionSetId]: false }));
+          }, 2000);
         }
-        
-        toastService.success(`Added ${response.data.questions.length} questions to ${section} section`);
+        if (failCount > 0) {
+          toastService.error(`${failCount} questions failed to add. Please check your network or data.`);
+        }
       } else {
         toastService.info('No questions found in this set');
       }
     } catch (error) {
       console.error("Error adding questions from set:", error);
       toastService.error('Failed to add questions from set');
+    } finally {
+      setLoadingAddSetQuestion(prev => ({ ...prev, [questionSetId]: false }));
     }
   };
 
@@ -1791,12 +1799,16 @@ const AdminPanel = () => {
     }
 
     // Call the API to create the question
+    // Pass correct answer as string value
+    const correctAnswerValue = typeof newQuestion.correctAnswer === 'number' && newQuestion.options[newQuestion.correctAnswer]
+      ? newQuestion.options[newQuestion.correctAnswer]
+      : newQuestion.correctAnswer;
     const response = await createQuestions(
       currentSectionId,
       newQuestion.question,
       'mcq', // question type
       newQuestion.options,
-      newQuestion.correctAnswer
+      correctAnswerValue
     );
     
     if (response.success) {
@@ -2871,8 +2883,22 @@ const AdminPanel = () => {
                       key={set.id}
                       className="bg-white p-3 rounded border border-gray-200 hover:border-blue-400 cursor-pointer transition-colors relative group"
                     >
-                      <div onClick={() => addQuestionsFromSet(set.id, activeSection)}>
-                        <h4 className="font-medium text-gray-900">{set.set_name}</h4>
+                      <div onClick={() => !loadingAddSetQuestion[set.id] && addQuestionsFromSet(set.id, activeSection)} className="relative">
+                        <h4 className="font-medium text-gray-900 flex items-center">
+                          {set.set_name}
+                          {loadingAddSetQuestion[set.id] && (
+                            <span className="ml-2">
+                              <span className="inline-block w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin align-middle"></span>
+                            </span>
+                          )}
+                          {successAddSetQuestion[set.id] && !loadingAddSetQuestion[set.id] && (
+                            <span className="ml-2">
+                              <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                            </span>
+                          )}
+                        </h4>
                         <p className="text-sm text-gray-500">Subject: {set.subject_name}</p>
                         <p className="text-xs text-gray-400 mt-1">Click to add questions from this set</p>
                       </div>

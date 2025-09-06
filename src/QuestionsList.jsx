@@ -111,18 +111,24 @@ const QuestionsList = ({ activeSection, examForm, removeQuestion, loadingRemoveQ
                 <p className="font-medium">
                   {index + 1}. {renderContent(q.question)}
                 </p>
-                <ul className="list-disc list-inside ml-4 text-sm text-gray-600">
-                  {q.options.map((opt, i) => (
-                    <li
-                      key={i}
-                      className={
-                        i === q.correctAnswer ? "font-bold text-green-600" : ""
-                      }
-                    >
-                      {String.fromCharCode(65 + i)}. {renderContent(opt)}
-                    </li>
-                  ))}
-                </ul>
+                <div className="grid grid-cols-1 gap-1 ml-6">
+                  {q.options.map((opt, i) => {
+                    // Support both correctAnswer and correctOption for compatibility
+                    const correctIdx =
+                      typeof q.correctAnswer === 'number' ? q.correctAnswer :
+                      typeof q.correctOption === 'number' ? q.correctOption : 0;
+                    return (
+                      <div key={i} className="flex items-center">
+                        <div
+                          className={`w-4 h-4 rounded-full mr-2 ${i === correctIdx ? 'bg-green-600' : 'bg-gray-200'}`}
+                        ></div>
+                        <span className={i === correctIdx ? 'font-bold text-green-700' : ''}>
+                          {renderContent(opt)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
               <button
                 onClick={() => removeQuestion(activeSection, q.id)}
