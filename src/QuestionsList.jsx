@@ -1,6 +1,7 @@
 import React from "react";
 import 'katex/dist/katex.min.css';
 import { InlineMath } from 'react-katex';
+import QuestionImage from './components/QuestionImage';
 
 // Function to convert radical notation to exponential notation
 const convertRadicalToExponential = (text) => {
@@ -63,7 +64,7 @@ const renderContent = (text) => {
   return text;
 };
 
-const QuestionsList = ({ activeSection, examForm, removeQuestion }) => {
+const QuestionsList = ({ activeSection, examForm, removeQuestion, loadingRemoveQuestion }) => {
   const questions = Array.isArray(examForm[activeSection]?.questions)
     ? examForm[activeSection].questions
     : [];
@@ -84,6 +85,29 @@ const QuestionsList = ({ activeSection, examForm, removeQuestion }) => {
               className="p-4 border border-gray-200 rounded-lg flex justify-between items-start"
             >
               <div>
+                {/* Display question image if available */}
+                {(q.image_id || q.image_path) && (
+                  <div className="mb-3 border border-gray-200 rounded-lg p-2 max-w-[300px]">
+                    {q.image_id ? (
+                      <QuestionImage 
+                        imageId={q.image_id} 
+                        alt={`Image for question ${index + 1}`}
+                        className="h-auto rounded-lg mx-auto"
+                        onError={(e) => console.error('Failed to load image:', e)}
+                      />
+                    ) : q.image_path ? (
+                      <img 
+                        src={q.image_path.startsWith('http') ? q.image_path : `${window.location.origin}${q.image_path}`} 
+                        alt="Question image" 
+                        className="max-w-full h-auto rounded-lg mx-auto"
+                        onError={(e) => {
+                          console.error('Failed to load image:', e);
+                          e.target.style.display = 'none';
+                        }}
+                      />
+                    ) : null}
+                  </div>
+                )}
                 <p className="font-medium">
                   {index + 1}. {renderContent(q.question)}
                 </p>
@@ -92,7 +116,7 @@ const QuestionsList = ({ activeSection, examForm, removeQuestion }) => {
                     <li
                       key={i}
                       className={
-                        q.correctAnswer === opt ? "font-bold text-green-600" : ""
+                        i === q.correctAnswer ? "font-bold text-green-600" : ""
                       }
                     >
                       {String.fromCharCode(65 + i)}. {renderContent(opt)}
@@ -102,9 +126,14 @@ const QuestionsList = ({ activeSection, examForm, removeQuestion }) => {
               </div>
               <button
                 onClick={() => removeQuestion(activeSection, q.id)}
-                className="text-red-600 hover:text-red-800"
+                className="text-red-600 hover:text-red-800 flex items-center justify-center"
+                disabled={loadingRemoveQuestion && loadingRemoveQuestion[q.id]}
               >
-                Remove
+                {loadingRemoveQuestion && loadingRemoveQuestion[q.id] ? (
+                  <div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  "Remove"
+                )}
               </button>
             </li>
           ))}

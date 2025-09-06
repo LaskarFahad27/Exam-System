@@ -123,7 +123,7 @@ const renderMathContent = (text) => {
   }
 };
 
-const MathQuestionsList = ({ activeSection, examForm, removeQuestion }) => {
+const MathQuestionsList = ({ activeSection, examForm, removeQuestion, loadingRemoveQuestion }) => {
   const questions = Array.isArray(examForm[activeSection]?.questions)
     ? examForm[activeSection].questions
     : [];
@@ -165,9 +165,14 @@ const MathQuestionsList = ({ activeSection, examForm, removeQuestion }) => {
               </div>
               <button
                 onClick={() => removeQuestion(activeSection, q.id)}
-                className="text-red-600 hover:text-red-800 flex-shrink-0"
+                className="text-red-600 hover:text-red-800 flex-shrink-0 flex items-center justify-center"
+                disabled={loadingRemoveQuestion && loadingRemoveQuestion[q.id]}
               >
-                Remove
+                {loadingRemoveQuestion && loadingRemoveQuestion[q.id] ? (
+                  <div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  "Remove"
+                )}
               </button>
             </li>
           ))}

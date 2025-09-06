@@ -1,10 +1,14 @@
-import React, { useState } from "react";
-import { addStyles, EditableMathField } from "react-mathquill";
+import React, { useState, useEffect } from "react";
+import { addStyles, EditableMathField } from "./components/MathLiveWrapper";
+import toastService from './utils/toast.jsx';
+import { ImagePlus, X } from 'lucide-react';
+import { BACKEND_URL } from './utils/api';
+import { setStorageItem, getStorageItem, removeStorageItem, debugImageStorage } from './utils/localStorageHelper';
 
-// Initialize MathQuill
+// MathLive styles are loaded automatically
 addStyles();
 
-// Math symbols organized by category
+// Math symbols organized by categoryegory
 const mathSymbols = {
   Basic: [
     { symbol: '+', latex: '+', label: 'Plus' },
@@ -135,6 +139,114 @@ const MathMCQMaker = ({ activeSection, addQuestion }) => {
     question: null,
     options: [null, null, null, null]
   });
+  
+  // Image handling states
+  const [questionImage, setQuestionImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [uploadedImage, setUploadedImage] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [currentImageId, setCurrentImageId] = useState(null);
+  
+  // Handle image selection
+  const handleImageSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (!file.type.match('image.*')) {
+        toastService.error('Please select an image file (jpg, jpeg, png, gif)');
+        return;
+      }
+      
+      setQuestionImage(file);
+      
+      // Create preview URL
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+  
+  // Cancel image selection
+  const cancelImageSelection = () => {
+    setQuestionImage(null);
+    setImagePreview(null);
+    setUploadedImage(null);
+    
+    // Clear localStorage entries related to the image
+    localStorage.removeItem('lastUploadedImageId');
+    localStorage.removeItem('lastUploadedImagePath');
+  };
+  
+  // Upload image to server
+  const uploadQuestionImage = async () => {
+    if (!questionImage) {
+      toastService.error('No image selected');
+      return null;
+    }
+    
+    setIsUploading(true);
+    
+    // Clear any previous image data first
+    setCurrentImageId(null);
+    removeStorageItem('lastUploadedImageId');
+    removeStorageItem('lastUploadedImagePath');
+    
+    try {
+      // Create form data
+      const formData = new FormData();
+      formData.append('image', questionImage);
+      
+      // Upload the image
+      const response = await fetch(`${BACKEND_URL}/question-images/upload`, {
+        method: 'POST',
+        headers: {
+         // 'Content-Type': 'multipart/form-data',
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+        },
+        body: formData
+      });
+      
+      const result = await response.json();
+        console.log("Image upload response:", result);
+      
+      if (response.ok && result.success) {
+        toastService.success('Image uploaded successfully');
+        
+        // Check if the response has the expected structure
+        if (!result.data || !result.data.image) {
+          console.error("Unexpected API response structure:", result);
+          toastService.error('Unexpected response from server');
+          return null;
+        }
+        
+        setUploadedImage(result.data);
+        
+        // Store image ID and path in localStorage for reliable access
+        const imageId = result.data.image.id;
+        const imagePath = result.data.image.path || '';
+        
+        // Use our helper to store values
+        setStorageItem('lastUploadedImageId', imageId);
+        setStorageItem('lastUploadedImagePath', imagePath);
+        
+        // Save to component state as well for redundancy
+        setCurrentImageId(imageId);
+        
+        // Debug storage values
+        debugImageStorage();        console.log("Image uploaded successfully with ID:", result.data.image.id, "stored in localStorage");
+        return result.data;
+      } else {
+        throw new Error(result.message || 'Failed to upload image');
+      }
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toastService.error(`Upload failed: ${error.message}`);
+      return null;
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const handleQuestionChange = (mathField) => {
     setQuestionForm({
@@ -230,11 +342,35 @@ const MathMCQMaker = ({ activeSection, addQuestion }) => {
     }
   };
 
-  const handleAddQuestion = () => {
+  const handleAddQuestion = async () => {
     if (!questionForm.questionLatex.trim() && !questionForm.questionText.trim()) {
-      alert("Please enter a question!");
+      toastService.error("Please enter a question!");
       return;
     }
+
+    // Upload image if selected and not already uploaded
+    let uploadedImageData = null;
+    let imageId = null;
+    
+    if (questionImage && !uploadedImage) {
+      uploadedImageData = await uploadQuestionImage();
+      if (!uploadedImageData) {
+        toastService.error('Failed to upload image. Please try again.');
+        return;
+      }
+      // Get the image ID from localStorage after upload
+      // Wait a moment to ensure localStorage is updated
+      await new Promise(resolve => setTimeout(resolve, 200));
+      imageId = getStorageItem('lastUploadedImageId');
+      console.log("Retrieved image ID from localStorage after upload:", imageId);
+    } else if (uploadedImage) {
+      uploadedImageData = uploadedImage;
+      // Get the image ID from localStorage if available
+      imageId = getStorageItem('lastUploadedImageId');
+      console.log("Retrieved image ID from existing upload:", imageId);
+    }
+    
+    console.log("Using image ID from localStorage:", imageId);
 
     // Format question with LaTeX if present
     const questionText = questionForm.questionLatex 
@@ -255,6 +391,16 @@ const MathMCQMaker = ({ activeSection, addQuestion }) => {
       correctAnswer: questionForm.correctAnswer,
       hasMath: true,
     };
+    
+    // Add image data if available
+    // Try both state variable and localStorage to be safe
+    const finalImageId = imageId || currentImageId;
+    if (finalImageId) {
+      // Use the image ID from localStorage or state
+      newQuestion.image_id = parseInt(finalImageId, 10);
+      newQuestion.image_path = getStorageItem('lastUploadedImagePath') || '';
+      console.log("Adding image to math question with ID:", finalImageId);
+    }
 
     addQuestion(activeSection, newQuestion);
 
@@ -265,6 +411,15 @@ const MathMCQMaker = ({ activeSection, addQuestion }) => {
       options: Array(4).fill({ text: "", latex: "" }),
       correctAnswer: null,
     });
+    // Clear image states
+    setQuestionImage(null);
+    setImagePreview(null);
+    setUploadedImage(null);
+    setCurrentImageId(null);
+    
+    // Clear localStorage entries related to the image
+    removeStorageItem('lastUploadedImageId');
+    removeStorageItem('lastUploadedImagePath');
     setActiveMathField(null);
     setShowSymbolPalette(false);
   };
@@ -332,9 +487,73 @@ const MathMCQMaker = ({ activeSection, addQuestion }) => {
       )}
 
       <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Question Text
-        </label>
+
+        {/* Image preview area - positioned at the top */}
+        {imagePreview && (
+          <div className="mb-4 relative">
+            <div className="border border-gray-300 rounded-lg p-2 relative">
+              <img 
+                src={imagePreview} 
+                alt="Question image preview" 
+                className="max-h-48 max-w-full mx-auto rounded"
+              />
+              <div className="mt-2 flex justify-between">
+                <button
+                  type="button"
+                  onClick={cancelImageSelection}
+                  className="text-red-500 text-sm hover:text-red-700"
+                >
+                  Remove
+                </button>
+                {!uploadedImage && !isUploading && (
+                  <button
+                    type="button"
+                    onClick={uploadQuestionImage}
+                    className="bg-blue-500 text-white px-3 py-1 text-sm rounded hover:bg-blue-600"
+                  >
+                    Upload
+                  </button>
+                )}
+                {isUploading && (
+                  <span className="text-gray-500 text-sm">Uploading...</span>
+                )}
+                {uploadedImage && (
+                  <span className="text-green-500 text-sm">✓ Uploaded</span>
+                )}
+              </div>
+              {/* Debug button to check localStorage */}
+              <button
+                type="button"
+                onClick={() => {
+                  const { imageId, imagePath } = debugImageStorage();
+                  alert(`Image ID in localStorage: ${imageId || 'Not found'}`);
+                }}
+                className="mt-2 text-xs text-blue-500 underline"
+              >
+                Debug: Check localStorage
+              </button>
+            </div>
+          </div>
+        )}
+          
+         <div className="flex justify-between w-full">
+          <div className="flex-1 flex justify-start">
+            <label className="block text-gray-700 text-sm font-medium mb-2">Question</label>
+          </div>
+          <div className="flex-1 flex justify-end text-gray-500 size-sm">
+            <input 
+              id="mathQstnImg" 
+              type="file" 
+              className="hidden" 
+              accept="image/*"
+              onChange={handleImageSelect} 
+            />
+            <label htmlFor="mathQstnImg" className="cursor-pointer flex items-center">
+              <ImagePlus className="w-5 h-5 hover:text-blue-500 transition-colors"/>
+              <span className="ml-1 text-sm">Add Image</span>
+            </label>
+          </div>
+        </div>
         <input
           type="text"
           placeholder="Enter question text"
@@ -348,15 +567,9 @@ const MathMCQMaker = ({ activeSection, addQuestion }) => {
           <label className="block text-sm font-medium text-gray-700">
             Math Equation - Supports keyboard input and symbols
           </label>
-          <button
-            onClick={() => openSymbolPalette('question')}
-            className="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600 transition-colors"
-          >
-            Add Math Symbols
-          </button>
         </div>
         <div 
-          className="math-field-container border-2 p-3 rounded bg-white min-h-[60px] focus-within:border-blue-500 transition-colors"
+          className="math-field-container p-2 bg-white min-h-[45px] transition-colors"
         >
           <EditableMathField
             latex={questionForm.questionLatex}
@@ -375,9 +588,6 @@ const MathMCQMaker = ({ activeSection, addQuestion }) => {
 
       <div className="mt-4 mb-2">
         <h3 className="font-medium text-gray-800">Options</h3>
-        <p className="text-xs text-gray-500 mb-2">
-          Add text and/or equations for each option. Click the radio button to set the correct answer.
-        </p>
       </div>
 
       {questionForm.options.map((opt, index) => (
@@ -403,15 +613,9 @@ const MathMCQMaker = ({ activeSection, addQuestion }) => {
           />
           <div className="flex justify-between items-center mb-1">
             <span className="text-xs text-gray-500">Math equation - Supports keyboard & symbols</span>
-            <button
-              onClick={() => openSymbolPalette('option', index)}
-              className="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600 transition-colors"
-            >
-              Add Symbols
-            </button>
           </div>
           <div 
-            className="math-field-container border-2 p-2 rounded bg-white min-h-[45px] focus-within:border-blue-500 transition-colors"
+            className="math-field-container p-1 bg-white min-h-[35px] transition-colors"
           >
             <EditableMathField
               latex={opt.latex}

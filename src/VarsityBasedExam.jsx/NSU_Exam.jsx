@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from "react-router-dom";
+import { navigateAndScrollToTop } from '../utils/navigation';
+import { logout } from '../utils/auth';
+import Header from '../components/Header';
 import { 
   CheckCircle, 
   ChevronRight,
@@ -11,71 +14,63 @@ import LogRegModal from '../LogRegModal';
 const NSU_Exam = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const navigate = useNavigate();
 
-     const openModal = () => {
+  useEffect(() => {
+    // Check if user is logged in
+    const studentToken = localStorage.getItem('studentToken');
+    setIsLoggedIn(!!studentToken);
+  }, []);
+
+  const openModal = () => {
     setIsModalOpen(true);
   };
 
   const closeModal = () => {
     setIsModalOpen(false);
+    // Check if user is logged in after modal is closed
+    const studentToken = localStorage.getItem('studentToken');
+    setIsLoggedIn(!!studentToken);
+    if (studentToken) {
+      setErrorMessage('');
+    }
+  };
+
+  const handleStartExam = () => {
+    if (isLoggedIn) {
+      navigateAndScrollToTop(navigate, "/exam-selection");
+    } else {
+      setErrorMessage('Please login to access the examinations');
+      openModal();
+    }
+  };
+
+  const handleLogin = () => {
+    openModal();
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout(); // Call the API logout function
+      setIsLoggedIn(false);
+    } catch (error) {
+      console.error('Logout error:', error);
+      // If there's an error with the API call, still remove the token as a fallback
+      localStorage.removeItem('studentToken');
+      setIsLoggedIn(false);
+    }
   };
 
   const adminLogin = () => {
-    navigate("/adminlogin"); 
+    navigateAndScrollToTop(navigate, "/adminlogin");
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 pb-24">
       {/* Navigation */}
-      <nav className="bg-white shadow-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="flex items-center space-x-2">
-                   <img src={logo} alt="CampusPro" className="w-25 h-6" />
-                </div>
-              </div>
-            </div>
-            
-            <div className="hidden md:block">
-              <div className="ml-10 flex items-baseline space-x-4">
-                <a href="#features" className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors">Features</a>
-                <a href="#pricing" className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors">Pricing</a>
-                <a href="#testimonials" className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors">Testimonials</a>
-                <a href="#contact" className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors">Contact</a>
-                <button className="bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transform hover:scale-105 transition-all duration-200 shadow-lg"
-                      onClick={adminLogin}>
-                   Admin Login
-              </button>
-              </div>
-            </div>
-
-            <div className="md:hidden">
-              <button
-                onClick={() => setIsMenuOpen(!isMenuOpen)}
-                className="text-gray-700 hover:text-blue-600 p-2"
-              >
-                {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Mobile menu */}
-        {isMenuOpen && (
-          <div className="md:hidden">
-            <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white shadow-lg">
-              <a href="#features" className="text-gray-700 hover:text-blue-600 block px-3 py-2 text-base font-medium">Features</a>
-              <a href="#pricing" className="text-gray-700 hover:text-blue-600 block px-3 py-2 text-base font-medium">Pricing</a>
-              <a href="#testimonials" className="text-gray-700 hover:text-blue-600 block px-3 py-2 text-base font-medium">Testimonials</a>
-              <a href="#contact" className="text-gray-700 hover:text-blue-600 block px-3 py-2 text-base font-medium">Contact</a>
-              <div onClick={adminLogin} className="text-gray-700 hover:text-blue-600 block px-3 py-2 text-base font-medium">Admin Login</div>
-            </div>
-          </div>
-        )}
-      </nav>
+      <Header />
 
       {/* Hero Section */}
       <section className="bg-gradient-to-br from-blue-50 to-indigo-100 py-20">
@@ -163,23 +158,21 @@ const NSU_Exam = () => {
           </div><br/><br/>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <button className="bg-blue-600 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-blue-700 transform hover:scale-105 transition-all duration-200 shadow-lg"
-                      onClick ={openModal}>
+                      onClick={handleStartExam}>
                    Start Exam
                 <ChevronRight className="inline-block ml-2 w-5 h-5" />
               </button>
             </div>
+            {!isLoggedIn && errorMessage && (
+              <div className="text-center mt-4">
+                <p className="text-red-600 text-sm">{errorMessage}</p>
+              </div>
+            )}
         </div>
       </section>
 
       {/* Render the LogRegModal component */}
       <LogRegModal isOpen={isModalOpen} onClose={closeModal} />
-
-      {/* Footer */}
-<footer className="bg-gray-800 text-white py-6 mt-12">
-  <div className="max-w-7xl mx-auto px-4 text-center">
-    <p className="text-sm">&copy; {new Date().getFullYear()} Developed by <span className="font-semibold">CoreCraft</span></p>
-  </div>
-</footer>
 
     </div>
   );

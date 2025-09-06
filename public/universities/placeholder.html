@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>University Logo Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .instructions {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .canvas-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .logo-item {
+            background-color: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        canvas {
+            display: block;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+        }
+        button {
+            padding: 8px 15px;
+            background-color: #4a6cf7;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #3a56d4;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="instructions">
+            <h1>University Logo Generator</h1>
+            <p>This page generates placeholder logos for universities. Click the download buttons to save them for your project.</p>
+            <p>After downloading, move the images to your project's /public/universities/ folder.</p>
+        </div>
+        
+        <div class="canvas-container">
+            <div class="logo-item">
+                <h2>NSU</h2>
+                <canvas id="nsuCanvas" width="800" height="500"></canvas>
+                <button onclick="downloadImage('nsuCanvas', 'nsu.jpg')">Download NSU Logo</button>
+            </div>
+            
+            <div class="logo-item">
+                <h2>BRACU</h2>
+                <canvas id="bracuCanvas" width="800" height="500"></canvas>
+                <button onclick="downloadImage('bracuCanvas', 'bracu.jpg')">Download BRACU Logo</button>
+            </div>
+            
+            <div class="logo-item">
+                <h2>AUST</h2>
+                <canvas id="austCanvas" width="800" height="500"></canvas>
+                <button onclick="downloadImage('austCanvas', 'aust.jpg')">Download AUST Logo</button>
+            </div>
+            
+            <div class="logo-item">
+                <h2>EWU</h2>
+                <canvas id="ewuCanvas" width="800" height="500"></canvas>
+                <button onclick="downloadImage('ewuCanvas', 'ewu.jpg')">Download EWU Logo</button>
+            </div>
+            
+            <div class="logo-item">
+                <h2>UIU</h2>
+                <canvas id="uiuCanvas" width="800" height="500"></canvas>
+                <button onclick="downloadImage('uiuCanvas', 'uiu.jpg')">Download UIU Logo</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // University color schemes
+        const colorSchemes = {
+            nsu: { 
+                primary: '#003366', 
+                secondary: '#8a1538',
+                accent: '#ffd700'
+            },
+            bracu: { 
+                primary: '#2a4d69', 
+                secondary: '#4b86b4',
+                accent: '#adcbe3'
+            },
+            aust: { 
+                primary: '#006838', 
+                secondary: '#96c93d',
+                accent: '#00a651'
+            },
+            ewu: { 
+                primary: '#7b1113', 
+                secondary: '#a71930',
+                accent: '#f5f5f5'
+            },
+            uiu: { 
+                primary: '#272361', 
+                secondary: '#0098da',
+                accent: '#ffffff'
+            }
+        };
+        
+        // Draw logos
+        function drawLogo(canvasId, colors, universityName, shortName) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            
+            // Background
+            ctx.fillStyle = '#f5f5f5';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Campus-like background image effect
+            ctx.fillStyle = colors.secondary;
+            ctx.globalAlpha = 0.1;
+            
+            // Draw some building-like shapes
+            for (let i = 0; i < 10; i++) {
+                const x = Math.random() * canvas.width;
+                const width = 50 + Math.random() * 150;
+                const height = 100 + Math.random() * 300;
+                ctx.fillRect(x, canvas.height - height, width, height);
+            }
+            
+            ctx.globalAlpha = 1.0;
+            
+            // Logo circle
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2 - 30;
+            const radius = 150;
+            
+            // Outer circle
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+            ctx.fillStyle = colors.primary;
+            ctx.fill();
+            
+            // Inner circle
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius - 15, 0, 2 * Math.PI);
+            ctx.fillStyle = '#ffffff';
+            ctx.fill();
+            
+            // Logo text
+            ctx.fillStyle = colors.primary;
+            ctx.font = 'bold 70px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(shortName, centerX, centerY);
+            
+            // University name at bottom
+            ctx.fillStyle = colors.primary;
+            ctx.font = 'bold 36px Arial';
+            ctx.fillText(universityName, centerX, canvas.height - 80);
+            
+            // Established text
+            ctx.fillStyle = colors.secondary;
+            ctx.font = '24px Arial';
+            ctx.fillText('Established University', centerX, canvas.height - 40);
+        }
+        
+        // Download function
+        function downloadImage(canvasId, filename) {
+            const canvas = document.getElementById(canvasId);
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = canvas.toDataURL('image/jpeg', 0.8);
+            link.click();
+        }
+        
+        // Draw all logos on page load
+        window.onload = function() {
+            drawLogo('nsuCanvas', colorSchemes.nsu, 'North South University', 'NSU');
+            drawLogo('bracuCanvas', colorSchemes.bracu, 'BRAC University', 'BRACU');
+            drawLogo('austCanvas', colorSchemes.aust, 'Ahsanullah University', 'AUST');
+            drawLogo('ewuCanvas', colorSchemes.ewu, 'East West University', 'EWU');
+            drawLogo('uiuCanvas', colorSchemes.uiu, 'United International University', 'UIU');
+        };
+    </script>
+</body>
+</html>

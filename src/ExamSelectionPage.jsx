@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Clock, Book, Calendar, User, Shield, ChevronRight } from 'lucide-react';
 import { getExamsForUser, startExam } from './utils/api';
-import toast from 'react-hot-toast';
+import { logout } from './utils/auth';
+import { navigateAndScrollToTop } from './utils/navigation';
+import toastService from './utils/toast.jsx';
 
 const ExamSelectionPage = () => {
   const [exams, setExams] = useState([]);
@@ -23,11 +25,11 @@ const ExamSelectionPage = () => {
       }
     } catch (error) {
       console.error('Error fetching exams:', error);
-      toast.error('Failed to load exams');
+      toastService.error('Failed to load exams');
       // If token is invalid, redirect to login
       if (error.message.includes('Authentication')) {
         localStorage.removeItem('studentToken');
-        navigate('/');
+        navigateAndScrollToTop(navigate, '/');
       }
     } finally {
       setLoading(false);
@@ -40,7 +42,7 @@ const ExamSelectionPage = () => {
       const response = await startExam(examId);
       
       if (response.success) {
-        toast.success('Exam started successfully!');
+        toastService.success('Exam started successfully!');
         // Navigate to online exam with the user_exam_id
         navigate('/online_exam', { 
           state: { 
@@ -53,16 +55,24 @@ const ExamSelectionPage = () => {
       }
     } catch (error) {
       console.error('Error starting exam:', error);
-      toast.error('Failed to start exam: ' + error.message);
+      toastService.error('Failed to start exam: ' + error.message);
     } finally {
       setStartingExam(null);
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('studentToken');
-    navigate('/');
-    toast.success('Logged out successfully');
+  const handleLogout = async () => {
+    try {
+      await logout(); // Call the API logout function
+      navigateAndScrollToTop(navigate, '/');
+      toastService.success('Logged out successfully');
+    } catch (error) {
+      console.error('Logout error:', error);
+      // If there's an error with the API call, still remove the token as a fallback
+      localStorage.removeItem('studentToken');
+      navigateAndScrollToTop(navigate, '/');
+      toastService.success('Logged out successfully');
+    }
   };
 
   if (loading) {
@@ -77,23 +87,23 @@ const ExamSelectionPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 pb-24">
       {/* Navigation */}
       <nav className="bg-white shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-4">
-              <Shield className="w-8 h-8 text-blue-600" />
-              <span className="text-xl font-bold text-gray-900">Exam Portal</span>
+              <Shield className="w-6 h-6 text-blue-600" />
+              <span className="text-lg md:text-xl font-bold text-gray-900">Exam Portal</span>
             </div>
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2 text-sm text-gray-600">
+            <div className="flex items-center space-x-2 md:space-x-4">
+              <div className="hidden sm:flex items-center space-x-2 text-sm text-gray-600">
                 <User className="w-4 h-4" />
                 <span>Student Dashboard</span>
               </div>
               <button
                 onClick={handleLogout}
-                className="px-4 py-2 text-sm text-red-600 hover:text-red-800 font-medium"
+                className="px-2 py-1 sm:px-4 sm:py-2 text-sm text-red-600 hover:text-red-800 font-medium"
               >
                 Logout
               </button>
@@ -173,16 +183,6 @@ const ExamSelectionPage = () => {
           </div>
         )}
       </div>
-
-      {/* Footer */}
-      <footer className="bg-gray-800 text-white py-6 mt-12">
-        <div className="max-w-7xl mx-auto px-4 text-center">
-          <p className="text-sm">
-            &copy; {new Date().getFullYear()} Developed by{' '}
-            <span className="font-semibold">CoreCraft</span>
-          </p>
-        </div>
-      </footer>
     </div>
   );
 };

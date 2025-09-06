@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from "react-router-dom";
 import { Users, BookOpen, Plus, Edit3, Trash2, Eye, EyeOff, GraduationCap, FileText, Calculator, Book, PenTool, X } from 'lucide-react';
-import toast from 'react-hot-toast';
+import toastService from './utils/toast.jsx';
 import { BACKEND_URL } from './utils/api';
 
 const AdminLogin = () => {
@@ -34,16 +34,16 @@ const AdminLogin = () => {
       if (response.ok) {
         setAdminUsername('');
         setAdminPassword('');
-        toast.success("Logged in successfully");
+        toastService.success("Logged in successfully");
         localStorage.setItem("adminToken", data.data.token);
         navigate("/admin");
       } else {
         throw new Error(data.message || 'Login failed');
-        toast.error("Failed to login");
+        toastService.error("Failed to login");
       }
     } catch (error) {
       console.error('Login error:', error);
-      toast.error("Failed to login");
+      toastService.error("Failed to login");
     }
   } else {
     setEmptyFields(true);

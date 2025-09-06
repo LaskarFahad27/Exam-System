@@ -1,145 +1,134 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from "react-router-dom";
-import { 
-  CheckCircle, 
-  ChevronRight,
-  Menu,
-  X
-} from 'lucide-react';
-import logo from "../src/assets/logo.png"
+import Header from './components/Header';
+import { navigateAndScrollToTop } from './utils/navigation';
+
+// Import university logos
+import { nsuLogo, bracuLogo, austLogo, ewuLogo, uiuLogo } from './assets/universityLogos';
 
 const LandingPage = () => {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const navigate = useNavigate();
 
-  const startExam = () => {
-    navigate("/online_exam"); 
-  };
+  useEffect(() => {
+    // Check if user is logged in
+    const studentToken = localStorage.getItem('studentToken');
+    setIsLoggedIn(!!studentToken);
+  }, []);
 
   const adminLogin = () => {
-    navigate("/adminlogin"); 
+    navigateAndScrollToTop(navigate, "/adminlogin");
   };
 
+  // University data with logos and names
+  const universities = [
+    { id: 'nsu', name: 'North South University', path: '/exam/nsu', image: nsuLogo },
+    { id: 'bracu', name: 'BRAC University', path: '/exam/bracu', image: bracuLogo },
+    { id: 'aust', name: 'Ahsanullah University of Science and Technology', path: '/exam/aust', image: austLogo },
+    { id: 'ewu', name: 'East West University', path: '/exam/ewu', image: ewuLogo },
+    { id: 'uiu', name: 'United International University', path: '/exam/uiu', image: uiuLogo },
+  ];
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen flex flex-col bg-gray-50">
       {/* Navigation */}
-      <nav className="bg-white shadow-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="flex items-center space-x-2">
-                   <img src={logo} alt="CampusPro" className="w-25 h-6" />
-                </div>
-              </div>
-            </div>
-            
-            <div className="hidden md:block">
-              <div className="ml-10 flex items-baseline space-x-4">
-                <a href="#features" className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors">Features</a>
-                <a href="#pricing" className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors">Pricing</a>
-                <a href="#testimonials" className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors">Testimonials</a>
-                <a href="#contact" className="text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium transition-colors">Contact</a>
-                <button className="bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transform hover:scale-105 transition-all duration-200 shadow-lg"
-                      onClick={adminLogin}>
-                   Admin Login
-              </button>
-              </div>
-            </div>
-
-            <div className="md:hidden">
-              <button
-                onClick={() => setIsMenuOpen(!isMenuOpen)}
-                className="text-gray-700 hover:text-blue-600 p-2"
-              >
-                {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Mobile menu */}
-        {isMenuOpen && (
-          <div className="md:hidden">
-            <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white shadow-lg">
-              <a href="#features" className="text-gray-700 hover:text-blue-600 block px-3 py-2 text-base font-medium">Features</a>
-              <a href="#pricing" className="text-gray-700 hover:text-blue-600 block px-3 py-2 text-base font-medium">Pricing</a>
-              <a href="#testimonials" className="text-gray-700 hover:text-blue-600 block px-3 py-2 text-base font-medium">Testimonials</a>
-              <a href="#contact" className="text-gray-700 hover:text-blue-600 block px-3 py-2 text-base font-medium">Contact</a>
-              <div onClick={adminLogin} className="text-gray-700 hover:text-blue-600 block px-3 py-2 text-base font-medium">Admin Login</div>
-            </div>
-          </div>
-        )}
-      </nav>
+      <Header />
 
       {/* Hero Section */}
-      <section className="bg-gradient-to-br from-blue-50 to-indigo-100 py-20">
+      <section className="bg-gradient-to-br from-blue-50 to-indigo-100 py-8 md:py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6 leading-tight">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 mb-4 md:mb-6 leading-tight">
               Smart, Secure & <span className="text-blue-600">University-Style</span> Online Exams
             </h1>
-            <p className="text-xl md:text-2xl text-gray-700 mb-8 max-w-4xl mx-auto">
-              Tailored for admission coaching centers to prepare students like real NSU, BRACU, AUST exams.
+            <p className="text-lg sm:text-xl md:text-2xl text-gray-700 mb-6 md:mb-10 max-w-4xl mx-auto">
+              Tailored for admission coaching centers to prepare students like real NSU, BRACU, AUST, EWU, UIU exams.
             </p>
-          </div>
-          
-          <div className="mt-16 relative">
-              <div id='box' className="flex flex-col items-center space-y-4">
-                <h3 className="text-2xl font-semibold text-gray-900 mb-4">Select Your Preferred University</h3>
-                <ul className="space-y-4">
-                  <li>
-                    <button 
-                      onClick={() => navigate("/exam/nsu")} 
-                      className="text-blue-600 border border-blue-600 px-6 py-3 rounded-lg text-lg font-medium hover:bg-blue-600 hover:text-white transition-all duration-200 shadow-md w-64 text-center"
-                    >
-                      NSU
-                    </button>
-                  </li>
-                  <li>
-                    <button 
-                      onClick={() => navigate("/exam/bracu")} 
-                      className="text-blue-600 border border-blue-600 px-6 py-3 rounded-lg text-lg font-medium hover:bg-blue-600 hover:text-white transition-all duration-200 shadow-md w-64 text-center"
-                    >
-                      BRACU
-                    </button>
-                  </li>
-                  <li>
-                    <button 
-                      onClick={() => navigate("/exam/aust")} 
-                       className="text-blue-600 border border-blue-600 px-6 py-3 rounded-lg text-lg font-medium hover:bg-blue-600 hover:text-white transition-all duration-200 shadow-md w-64 text-center"
-                    >
-                      AUST
-                    </button>
-                  </li>
-                  <li>
-                    <button 
-                      onClick={() => navigate("/exam/ewu")} 
-                       className="text-blue-600 border border-blue-600 px-6 py-3 rounded-lg text-lg font-medium hover:bg-blue-600 hover:text-white transition-all duration-200 shadow-md w-64 text-center"
-                    >
-                      EWU
-                    </button>
-                  </li>
-                  <li>
-                    <button 
-                      onClick={() => navigate("/exam/uiu")} 
-                       className="text-blue-600 border border-blue-600 px-6 py-3 rounded-lg text-lg font-medium hover:bg-blue-600 hover:text-white transition-all duration-200 shadow-md w-64 text-center"
-                    >
-                      UIU
-                    </button>
-                  </li>
-                </ul>
-              </div>
           </div>
         </div>
       </section>
-      {/* Footer */}
-<footer className="bg-gray-800 text-white py-6 mt-12">
-  <div className="max-w-7xl mx-auto px-4 text-center">
-    <p className="text-sm">&copy; {new Date().getFullYear()} Developed by <span className="font-semibold">CoreCraft</span></p>
-  </div>
-</footer>
 
+      {/* University Cards Section */}
+      <section className="py-8 md:py-16 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className="text-2xl md:text-3xl font-bold text-center text-gray-900 mb-6 md:mb-12">
+            Select Your Preferred University
+          </h2>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-10">
+            {universities.map((university) => (
+              <div 
+                key={university.id}
+                className="group bg-white rounded-xl shadow-lg overflow-hidden transition-all duration-500 hover:shadow-2xl hover:-translate-y-2 hover:scale-105 cursor-pointer border border-gray-100"
+                onClick={() => navigateAndScrollToTop(navigate, university.path)}
+              >
+                <div className="h-40 md:h-56 overflow-hidden relative">
+                  {/* Overlay effect on hover */}
+                  <div className="absolute inset-0 bg-blue-500 opacity-0 group-hover:opacity-20 transition-opacity duration-500 z-10"></div>
+                  
+                  {/* University Logo with zoom and fill effect */}
+                  <img 
+                    src={university.image} 
+                    alt={university.name} 
+                    className="w-full h-full object-cover object-center transform transition-transform duration-700 group-hover:scale-110"
+                  />
+                </div>
+                
+                <div className="p-5 md:p-6 bg-gradient-to-r from-white to-blue-50 border-t border-gray-100">
+                  <h3 className="text-lg md:text-xl font-semibold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors duration-300">{university.name}</h3>
+                  <p className="text-sm md:text-base text-blue-600 font-medium flex items-center">
+                    Prepare for {university.id.toUpperCase()} Admission
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-2 transform group-hover:translate-x-2 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                    </svg>
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Features Section */}
+      <section className="py-8 md:py-16 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className="text-2xl md:text-3xl font-bold text-center text-gray-900 mb-6 md:mb-12">
+            Why Choose Our Exam System?
+          </h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8">
+            <div className="bg-white p-6 md:p-8 rounded-xl shadow-md">
+              <div className="text-blue-600 text-3xl md:text-4xl mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 md:h-12 md:w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+              </div>
+              <h3 className="text-lg md:text-xl font-semibold text-gray-900 mb-3">Secure Environment</h3>
+              <p className="text-sm md:text-base text-gray-600">Advanced proctoring features to ensure exam integrity and prevent cheating.</p>
+            </div>
+            
+            <div className="bg-white p-6 md:p-8 rounded-xl shadow-md">
+              <div className="text-blue-600 text-3xl md:text-4xl mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 md:h-12 md:w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                </svg>
+              </div>
+              <h3 className="text-lg md:text-xl font-semibold text-gray-900 mb-3">Customizable Format</h3>
+              <p className="text-sm md:text-base text-gray-600">Exam patterns that exactly match the format of target universities.</p>
+            </div>
+            
+            <div className="bg-white p-6 md:p-8 rounded-xl shadow-md">
+              <div className="text-blue-600 text-3xl md:text-4xl mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 md:h-12 md:w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+              </div>
+              <h3 className="text-lg md:text-xl font-semibold text-gray-900 mb-3">Detailed Analytics</h3>
+              <p className="text-sm md:text-base text-gray-600">Comprehensive performance reports to identify strengths and areas for improvement.</p>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
   );
 };
