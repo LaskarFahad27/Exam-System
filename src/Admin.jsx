@@ -1702,10 +1702,15 @@ const AdminPanel = () => {
     try {
       setLoadingAddExam(true);
       const res = await createExam(examForm.title, examForm.description);
-      const examId = res.data.exam.id;
+      const newExam = res.data.exam;
+      const examId = newExam.id;
 
       setExamId(examId);
       setExamCreated(true);
+
+      // Add new exam to the top of the list (newest first)
+      setExams(prev => [newExam, ...prev]);
+      setFilteredExams(prev => [newExam, ...prev]);
 
       console.log("exam id", examId);
     } catch (error) {
