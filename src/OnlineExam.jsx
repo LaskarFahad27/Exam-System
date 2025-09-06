@@ -828,9 +828,9 @@ const OnlineExam = () => {
         </div>
       )}
 
-      {/* PassageBar for reading section, immediately after section header and before questions */}
+      {/* PassageBar for reading section, positioned to stick below the header when scrolling */}
       {currentSection && currentSection.name && currentSection.name.toLowerCase() === 'reading' && currentPassage && (
-        <div className="mt-4">
+        <div className="mt-4 passage-container" id="passage-section">
           <PassageBar 
             passageText={currentPassage.passage_text} 
             passageTitle={currentPassage.title} 

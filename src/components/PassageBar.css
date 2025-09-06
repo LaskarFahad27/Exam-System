@@ -9,6 +9,8 @@
   max-height: 60vh;
   display: flex;
   flex-direction: column;
+  position: relative;
+  z-index: 50;
 }
 
 .passage-bar.visible {
@@ -16,6 +18,10 @@
 }
 .passage-bar.hidden {
   display: none;
+}
+
+.passage-bar.header-hidden .passage-header {
+  visibility: hidden;
 }
 
 .passage-header {
@@ -104,6 +110,12 @@
   background-color: #f0e6ff;
 }
 
+/* Sticky passage header styles */
+.passage-header.sticky {
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
 .passage-show-button {
   display: flex;
   align-items: center;
@@ -124,6 +136,54 @@
 .passage-full-text {
   white-space: pre-wrap;
   line-height: 1.6;
+}
+
+/* Container for passage bar to ensure proper positioning */
+.passage-container {
+  position: relative;
+  z-index: 40;
+}
+
+/* Sticky passage bar header */
+.sticky-passage-header {
+  position: fixed;
+  top: 64px; /* Adjust this value based on your exam header height */
+  left: 0;
+  right: 0;
+  z-index: 99; /* Lower than header z-index */
+  background-color: #6b46c1;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  margin: 0 !important;
+  width: 100%;
+  max-width: 100%;
+  padding: 0;
+}
+
+/* Container for the sticky header to maintain proper spacing */
+.sticky-header-container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 15px;
+}
+
+/* When the passage content is expanded in sticky mode */
+.sticky-passage-header .passage-content.expanded {
+  position: fixed;
+  top: calc(64px + 40px); /* Header height + passage header height */
+  left: 0;
+  right: 0;
+  max-width: 900px;
+  margin: 0 auto;
+  background: white;
+  border: 1px solid #dee2e6;
+  border-top: none;
+  box-shadow: 0 5px 10px rgba(0, 0, 0, 0.1);
+  max-height: 50vh;
+  overflow-y: auto;
+  z-index: 98;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 15px;
 }
 
 /* Responsive styles */
