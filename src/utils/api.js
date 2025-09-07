@@ -778,6 +778,39 @@ export async function getExamResults(examId) {
   }
 }
 
+//..............Get user scores..........................
+
+export async function getUserScores() {
+  const studentToken = localStorage.getItem("studentToken");
+
+  if (!studentToken) {
+    throw new Error("Authentication required");
+  }
+
+  try {
+    const response = await fetch(`${BACKEND_URL}/scores/user`, {
+      method: "GET",
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${studentToken}`
+      },
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      console.log("User scores fetched successfully:", data);
+      return data;
+    }
+    else {
+      throw new Error(data.message || "Failed to fetch user scores");
+    }
+  } catch (error) {
+    console.error("Error fetching user scores:", error);
+    throw error;
+  }
+}
+
 //..............Create Question Set..............
 
 export async function createQuestionSet(subject, setName) {
