@@ -102,7 +102,7 @@ const Footer = () => {
             </nav>
           </div>
           <div className="text-sm">
-            &copy; {currentYear} Campus Pro. All rights reserved.
+            &copy; {currentYear} CampusPro. All rights reserved.
           </div>
         </div>
       </div>

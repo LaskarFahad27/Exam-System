@@ -2068,7 +2068,7 @@ const AdminPanel = () => {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-800">Admin Panel</h1>
-                <p className="text-gray-600 text-sm">Campus Pro Examination System</p>
+                <p className="text-gray-600 text-sm">CampusPro Examination System</p>
               </div>
             </div>
             
@@ -2318,6 +2318,56 @@ const AdminPanel = () => {
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-bold text-gray-800">Exam Management</h2>
               <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    // Get admin token from localStorage
+                    const adminToken = localStorage.getItem("adminToken");
+                    if (!adminToken) {
+                      toastService.error("Authentication required");
+                      return;
+                    }
+                    
+                    // Create a download link
+                    const downloadLink = document.createElement("a");
+                    downloadLink.href = `${BACKEND_URL}/reports/export-detailed-score-report`;
+                    downloadLink.download = `user-reports-${new Date().toISOString().split('T')[0]}.csv`;
+                    
+                    // Add authorization header using Fetch API
+                    fetch(downloadLink.href, {
+                      method: "GET",
+                      headers: {
+                        "Authorization": `Bearer ${adminToken}`
+                      }
+                    })
+                    .then(response => {
+                      if (!response.ok) {
+                        throw new Error(`Error: ${response.status} ${response.statusText}`);
+                      }
+                      return response.blob();
+                    })
+                    .then(blob => {
+                      // Create a URL for the blob
+                      const url = window.URL.createObjectURL(blob);
+                      downloadLink.href = url;
+                      
+                      // Append to body, click, and remove
+                      document.body.appendChild(downloadLink);
+                      downloadLink.click();
+                      window.URL.revokeObjectURL(url);
+                      document.body.removeChild(downloadLink);
+                      
+                      toastService.success("Report downloaded successfully");
+                    })
+                    .catch(error => {
+                      console.error("Error downloading report:", error);
+                      toastService.error(`Failed to download report: ${error.message}`);
+                    });
+                  }}
+                  className="flex items-center space-x-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-md"
+                >
+                  <FileText className="w-5 h-5" />
+                  <span>Export User Reports</span>
+                </button>
                 <button
                   onClick={() => {
                     resetExamForm();

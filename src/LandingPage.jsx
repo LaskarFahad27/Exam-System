@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from 'react';import { useNavigate } from "react-router-dom";
 import Header from './components/Header';
 import { navigateAndScrollToTop } from './utils/navigation';
 
@@ -48,46 +47,55 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* University Cards Section */}
-      <section className="py-8 md:py-16 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-2xl md:text-3xl font-bold text-center text-gray-900 mb-6 md:mb-12">
-            Select Your Preferred University
-          </h2>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-10">
-            {universities.map((university) => (
-              <div 
-                key={university.id}
-                className="group bg-white rounded-xl shadow-lg overflow-hidden transition-all duration-500 hover:shadow-2xl hover:-translate-y-2 hover:scale-105 cursor-pointer border border-gray-100"
-                onClick={() => navigateAndScrollToTop(navigate, university.path)}
-              >
-                <div className="h-40 md:h-56 overflow-hidden relative">
-                  {/* Overlay effect on hover */}
-                  <div className="absolute inset-0 bg-blue-500 opacity-0 group-hover:opacity-20 transition-opacity duration-500 z-10"></div>
-                  
-                  {/* University Logo with zoom and fill effect */}
-                  <img 
-                    src={university.image} 
-                    alt={university.name} 
-                    className="w-full h-full object-cover object-center transform transition-transform duration-700 group-hover:scale-110"
-                  />
-                </div>
-                
-                <div className="p-5 md:p-6 bg-gradient-to-r from-white to-blue-50 border-t border-gray-100">
-                  <h3 className="text-lg md:text-xl font-semibold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors duration-300">{university.name}</h3>
-                  <p className="text-sm md:text-base text-blue-600 font-medium flex items-center">
-                    Prepare for {university.id.toUpperCase()} Admission
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-2 transform group-hover:translate-x-2 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                    </svg>
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
+    {/* University Cards Section */}
+<section className="py-8 md:py-16 bg-white">
+  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <h2 className="text-2xl md:text-3xl font-bold text-center text-gray-900 mb-6 md:mb-12">
+      Select Your Preferred University
+    </h2>
+
+    <div className="flex justify-center">
+      {/* Only NSU */}
+      <div
+        className="group bg-white rounded-xl shadow-lg overflow-hidden transition-all duration-500 hover:shadow-2xl hover:-translate-y-2 hover:scale-105 cursor-pointer border border-gray-100 max-w-sm w-full"
+        onClick={() => navigateAndScrollToTop(navigate, '/exam/nsu')}
+      >
+        <div className="h-40 md:h-56 overflow-hidden relative">
+          {/* Overlay effect on hover */}
+          <div className="absolute inset-0 bg-blue-500 opacity-0 group-hover:opacity-20 transition-opacity duration-500 z-10"></div>
+
+          {/* University Logo with zoom effect */}
+          <img
+            src={nsuLogo}
+            alt="North South University"
+            className="w-full h-full object-cover object-center transform transition-transform duration-700 group-hover:scale-110"
+          />
         </div>
-      </section>
+
+        <div className="p-5 md:p-6 bg-gradient-to-r from-white to-blue-50 border-t border-gray-100">
+          <h3 className="text-lg md:text-xl font-semibold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors duration-300">
+            North South University
+          </h3>
+          <p className="text-sm md:text-base text-blue-600 font-medium flex items-center">
+            Prepare for NSU Admission
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-2 transform group-hover:translate-x-2 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+            </svg>
+          </p>
+        </div>
+      </div>
+
+      {/*
+      // Other universities commented out
+      <div>BRACU Card</div>
+      <div>AUST Card</div>
+      <div>EWU Card</div>
+      <div>UIU Card</div>
+      */}
+    </div>
+  </div>
+</section>
+
 
       {/* Features Section */}
       <section className="py-8 md:py-16 bg-gray-50">
@@ -95,7 +103,7 @@ const LandingPage = () => {
           <h2 className="text-2xl md:text-3xl font-bold text-center text-gray-900 mb-6 md:mb-12">
             Why Choose Our Exam System?
           </h2>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8">
             <div className="bg-white p-6 md:p-8 rounded-xl shadow-md">
               <div className="text-blue-600 text-3xl md:text-4xl mb-4">
@@ -106,7 +114,7 @@ const LandingPage = () => {
               <h3 className="text-lg md:text-xl font-semibold text-gray-900 mb-3">Secure Environment</h3>
               <p className="text-sm md:text-base text-gray-600">Advanced proctoring features to ensure exam integrity and prevent cheating.</p>
             </div>
-            
+
             <div className="bg-white p-6 md:p-8 rounded-xl shadow-md">
               <div className="text-blue-600 text-3xl md:text-4xl mb-4">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 md:h-12 md:w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -116,7 +124,7 @@ const LandingPage = () => {
               <h3 className="text-lg md:text-xl font-semibold text-gray-900 mb-3">Customizable Format</h3>
               <p className="text-sm md:text-base text-gray-600">Exam patterns that exactly match the format of target universities.</p>
             </div>
-            
+
             <div className="bg-white p-6 md:p-8 rounded-xl shadow-md">
               <div className="text-blue-600 text-3xl md:text-4xl mb-4">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 md:h-12 md:w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
