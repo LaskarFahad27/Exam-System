@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import ReadingPassageQuestions from './ReadingPassageQuestions';
 import { fetchPassageForReadingSet } from './utils/passageUtils';
 import { Users, BookOpen, Plus, Edit3, Trash2, Eye, EyeOff, GraduationCap, FileText, Calculator, Book, PenTool, X, 
-         ScrollText, CircuitBoard, FlaskConical, Stethoscope, UserCircle2, Calendar, Search, ImagePlus } from 'lucide-react';
+         ScrollText, CircuitBoard, FlaskConical, Stethoscope, UserCircle2, Calendar, Search, ImagePlus, BarChart, PieChart } from 'lucide-react';
 import './components/Tooltip.css';
 import toastService from './utils/toast.jsx';
 import { setStorageItem, getStorageItem, removeStorageItem, debugImageStorage } from './utils/localStorageHelper';
@@ -18,7 +18,7 @@ import {
 import { getExams, createExam, createSection, createQuestions, dropExam, forceDropExam, fetchExamsById, 
         deleteQuestion, deleteSection, toggleExamPublishStatus, updateExamBasicDetails, createQuestionSet, 
         fetchQuestionSet, addQuestionToSet, removeQuestionFromSet, fetchQuestionsForSet, searchQuestionSets,
-        editQuestionSet, deleteQuestionSet } from './utils/api';
+        editQuestionSet, deleteQuestionSet, getExamStatistics } from './utils/api';
         
 import MCQMaker from './MCQMaker';
 import MathMCQMaker from './MathMCQMaker';
@@ -492,6 +492,31 @@ const AdminPanel = () => {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editingExamId, setEditingExamId] = useState();
   const [editFormData, setEditFormData] = useState({ title: '', description: '' });
+  
+  // Statistics modal state
+  const [statisticsModalOpen, setStatisticsModalOpen] = useState(false);
+  const [currentStatistics, setCurrentStatistics] = useState(null);
+  const [loadingStatistics, setLoadingStatistics] = useState(false);
+  const [currentExamForStats, setCurrentExamForStats] = useState(null);
+
+  // Function to fetch and display exam statistics
+  const handleViewStatistics = async (e, examId, examTitle) => {
+    e.stopPropagation(); // Prevent parent click event (edit exam)
+    
+    try {
+      setLoadingStatistics(true);
+      setCurrentExamForStats({ id: examId, title: examTitle });
+      const statistics = await getExamStatistics(examId);
+      console.log("Exam statistics:", statistics);
+      setCurrentStatistics(statistics);
+      setStatisticsModalOpen(true);
+    } catch (error) {
+      console.error('Error fetching exam statistics:', error);
+      toastService.error('Failed to fetch exam statistics');
+    } finally {
+      setLoadingStatistics(false);
+    }
+  };
 
   // Handle toggle publish status
   const handleTogglePublishStatus = async (e, examId, currentStatus) => {
@@ -2605,6 +2630,19 @@ const AdminPanel = () => {
       >
         <div className="absolute top-2 right-2 flex space-x-2 ">
           <button
+            onClick={(e) => handleViewStatistics(e, exam.id, exam.title)}
+            className="p-1 rounded-full text-blue-500 hover:text-blue-700 transition"
+            disabled={loadingStatistics}
+            title="View Statistics"
+          >
+            {loadingStatistics && currentExamForStats?.id === exam.id ? (
+              <div className="w-5 h-5 border-2 border-t-2 border-blue-500 rounded-full animate-spin"></div>
+            ) : (
+              <BarChart className="w-5 h-5" />
+            )}
+          </button>
+          
+          <button
             onClick={(e) => handleTogglePublishStatus(e, exam.id, exam.published === 1)}
             className={`p-1 rounded-full ${exam.published === 1 ? 'text-green-500 hover:text-green-700' : 'text-gray-500 hover:text-gray-700'} transition`}
             disabled={loadingPublishStatus[exam.id]}
@@ -4186,6 +4224,108 @@ const AdminPanel = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      
+      {/* Statistics Modal */}
+      {statisticsModalOpen && currentExamForStats && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-3xl p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold">Statistics for {currentExamForStats.title}</h3>
+              <button 
+                onClick={() => setStatisticsModalOpen(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            {loadingStatistics ? (
+              <div className="flex justify-center items-center py-10">
+                <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+              </div>
+            ) : currentStatistics?.data ? (
+              <div className="space-y-6">
+                {/* Overall Statistics */}
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <h4 className="text-lg font-semibold text-blue-800 mb-3">Overall Statistics</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-white p-3 rounded shadow-sm border border-blue-100">
+                      <p className="text-sm text-gray-500">Total Attempts</p>
+                      <p className="text-2xl font-bold text-blue-600">{currentStatistics.data.total_attempts || 0}</p>
+                    </div>
+                    <div className="bg-white p-3 rounded shadow-sm border border-blue-100">
+                      <p className="text-sm text-gray-500">Overall Average</p>
+                      <p className="text-2xl font-bold text-blue-600">
+                        {currentStatistics.data.overall_average !== undefined ? 
+                          `${currentStatistics.data.overall_average.toFixed(2)}` : 'N/A'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Section Statistics */}
+                {currentStatistics.data.section_statistics && currentStatistics.data.section_statistics.length > 0 && (
+                  <div>
+                    <h4 className="text-lg font-semibold text-gray-800 mb-3">Section Performance</h4>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full bg-white border border-gray-200 rounded-lg">
+                        <thead>
+                          <tr className="bg-gray-50">
+                            <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b">Section</th>
+                            <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b">Sequence</th>
+                            <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b">Avg. Score</th>
+                            <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b">Avg. Correct</th>
+                            <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b">Total Questions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {currentStatistics.data.section_statistics.map((section, index) => (
+                            <tr key={index} className={index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
+                              <td className="py-3 px-4 border-b capitalize">{section.section_name}</td>
+                              <td className="py-3 px-4 border-b">{section.sequence_order}</td>
+                              <td className="py-3 px-4 border-b">
+                                {section.average_score !== undefined ? `${section.average_score.toFixed(2)}` : 'N/A'}
+                              </td>
+                              <td className="py-3 px-4 border-b">
+                                {section.average_correct !== undefined ? `${section.average_correct.toFixed(2)}` : 'N/A'}
+                              </td>
+                              <td className="py-3 px-4 border-b">
+                                {section.average_total || 'N/A'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+                
+                {/* No data case */}
+                {(!currentStatistics.data.section_statistics || currentStatistics.data.section_statistics.length === 0) && (
+                  <div className="text-center py-6">
+                    <PieChart className="w-16 h-16 mx-auto text-gray-300" />
+                    <p className="mt-4 text-gray-500">No detailed statistics available for this exam yet.</p>
+                    <p className="text-sm text-gray-400">Statistics will appear once students start taking the exam.</p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-6">
+                <p className="text-gray-500">Failed to load statistics. Please try again.</p>
+              </div>
+            )}
+            
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => setStatisticsModalOpen(false)}
+                className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

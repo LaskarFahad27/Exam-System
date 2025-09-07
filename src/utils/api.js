@@ -1,4 +1,4 @@
-export const BACKEND_URL = "http://172.232.104.77:6536/api";
+export const BACKEND_URL = "https://test.campusprobd.com/api";
 
 //............Reading Passages.....................
 
@@ -1237,6 +1237,40 @@ export async function deleteQuestionSet(questionSetId, forceDelete = false) {
     }
   } catch (error) {
     console.error("Error deleting question set:", error);
+    throw error;
+  }
+}
+
+//............Get Exam Statistics.....................
+
+export async function getExamStatistics(examId) {
+  const adminToken = localStorage.getItem("adminToken");
+
+  if (!adminToken) {
+    throw new Error("Authentication required");
+  }
+
+  try {
+    const response = await fetch(`${BACKEND_URL}/scores/exams/${examId}/statistics`, {
+      method: "GET",
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${adminToken}`
+      }
+    });
+    
+    const data = await response.json();
+    
+    if (response.ok) {
+      console.log("Exam statistics fetched successfully:", data);
+      return data;
+    }
+    else {
+      console.error("API error response:", data);
+      throw new Error(data.message || "Failed to fetch exam statistics");
+    }
+  } catch (error) {
+    console.error("Error fetching exam statistics:", error);
     throw error;
   }
 }
