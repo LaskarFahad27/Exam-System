@@ -1635,46 +1635,56 @@ const AdminPanel = () => {
     getQuestionSets();
   }, [activeTab]);
 
-  useEffect(() => {
-    const fetchStudents = async () => {
-      if (activeTab === 'students') {
-        setIsLoadingStudents(true);
-        try {
-          const adminToken = localStorage.getItem("adminToken");
-          if (!adminToken) {
-            toastService.error("Authentication required");
-            setIsLoadingStudents(false);
-            return;
-          }
-
-          const response = await fetch(`${BACKEND_URL}/auth/users`, {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${adminToken}`
-            },
-          });
-          
-          const data = await response.json();
-          
-          if (response.ok && data.success) {
-            setStudents(data.data);
-            setFilteredStudents(data.data);
-            console.log("Students fetched successfully:", data.data);
-          } else {
-            toastService.error(data.message || "Failed to fetch students");
-          }
-        } catch (error) {
-          console.error("Error fetching students:", error);
-          toastService.error("Failed to load students");
-        } finally {
+ useEffect(() => {
+  const fetchStudents = async () => {
+    if (activeTab === 'students') {
+      setIsLoadingStudents(true);
+      try {
+        const adminToken = localStorage.getItem("adminToken");
+        if (!adminToken) {
+          toastService.error("Authentication required");
           setIsLoadingStudents(false);
+          return;
         }
-      }
-    };
 
-    fetchStudents();
-  }, [activeTab]);
+        // Ask user for master key
+        const masterKey = window.prompt("Please enter the master key:");
+        if (!masterKey) {
+          toastService.error("Master key is required");
+          setIsLoadingStudents(false);
+          return;
+        }
+
+        const response = await fetch(`${BACKEND_URL}/auth/users`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${adminToken}`,
+            "masterkey": masterKey
+          },
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          setStudents(data.data);
+          setFilteredStudents(data.data);
+          console.log("Students fetched successfully:", data.data);
+        } else {
+          toastService.error(data.message || "Failed to fetch students");
+        }
+      } catch (error) {
+        console.error("Error fetching students:", error);
+        toastService.error("Failed to load students");
+      } finally {
+        setIsLoadingStudents(false);
+      }
+    }
+  };
+
+  fetchStudents();
+}, [activeTab]);
+
   
   // Effect for search functionality
   useEffect(() => {
@@ -2189,13 +2199,70 @@ const AdminPanel = () => {
           <div className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-bold text-gray-800">Student Management</h2>
-              <button
-                onClick={() => setShowStudentForm(true)}
-                className="flex items-center space-x-2 bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700 transition-colors shadow-md"
-              >
-                <Plus className="w-5 h-5" />
-                <span>Add Student</span>
-              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={async () => {
+                    // Get admin token from localStorage
+                    const adminToken = localStorage.getItem("adminToken");
+                    if (!adminToken) {
+                      toastService.error("Authentication required");
+                      return;
+                    }
+
+                    // Ask user for master key
+                    const masterKey = window.prompt("Please enter the master key:");
+                    if (!masterKey) {
+                      toastService.error("Master key is required");
+                      return;
+                    }
+
+                    try {
+                      // Create a download link
+                      const downloadLink = document.createElement("a");
+                      downloadLink.download = `users-export-${new Date().toISOString().split("T")[0]}.csv`;
+
+                      // Call API with headers
+                      const response = await fetch(`${BACKEND_URL}/user-exports/export-users`, {
+                        method: "GET",
+                        headers: {
+                          "Authorization": `Bearer ${adminToken}`,
+                          "masterkey": masterKey,
+                        },
+                      });
+
+                      if (!response.ok) {
+                        throw new Error(`Error: ${response.status} ${response.statusText}`);
+                      }
+
+                      const blob = await response.blob();
+                      const url = window.URL.createObjectURL(blob);
+
+                      // Download file
+                      downloadLink.href = url;
+                      document.body.appendChild(downloadLink);
+                      downloadLink.click();
+                      window.URL.revokeObjectURL(url);
+                      document.body.removeChild(downloadLink);
+
+                      toastService.success("Users exported successfully");
+                    } catch (error) {
+                      console.error("Error exporting users:", error);
+                      toastService.error(`Failed to export users: ${error.message}`);
+                    }
+                  }}
+                  className="flex items-center space-x-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-md"
+                >
+                  <FileText className="w-5 h-5" />
+                  <span>Export Users</span>
+                </button>
+                <button
+                  onClick={() => setShowStudentForm(true)}
+                  className="flex items-center space-x-2 bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700 transition-colors shadow-md"
+                >
+                  <Plus className="w-5 h-5" />
+                  <span>Add Student</span>
+                </button>
+              </div>
             </div>
 
             {/* Students Grid */}
@@ -2344,50 +2411,56 @@ const AdminPanel = () => {
               <h2 className="text-2xl font-bold text-gray-800">Exam Management</h2>
               <div className="flex gap-3">
                 <button
-                  onClick={() => {
-                    // Get admin token from localStorage
-                    const adminToken = localStorage.getItem("adminToken");
-                    if (!adminToken) {
-                      toastService.error("Authentication required");
-                      return;
-                    }
-                    
-                    // Create a download link
-                    const downloadLink = document.createElement("a");
-                    downloadLink.href = `${BACKEND_URL}/reports/export-detailed-score-report`;
-                    downloadLink.download = `user-reports-${new Date().toISOString().split('T')[0]}.csv`;
-                    
-                    // Add authorization header using Fetch API
-                    fetch(downloadLink.href, {
-                      method: "GET",
-                      headers: {
-                        "Authorization": `Bearer ${adminToken}`
-                      }
-                    })
-                    .then(response => {
-                      if (!response.ok) {
-                        throw new Error(`Error: ${response.status} ${response.statusText}`);
-                      }
-                      return response.blob();
-                    })
-                    .then(blob => {
-                      // Create a URL for the blob
-                      const url = window.URL.createObjectURL(blob);
-                      downloadLink.href = url;
-                      
-                      // Append to body, click, and remove
-                      document.body.appendChild(downloadLink);
-                      downloadLink.click();
-                      window.URL.revokeObjectURL(url);
-                      document.body.removeChild(downloadLink);
-                      
-                      toastService.success("Report downloaded successfully");
-                    })
-                    .catch(error => {
-                      console.error("Error downloading report:", error);
-                      toastService.error(`Failed to download report: ${error.message}`);
-                    });
-                  }}
+                 onClick={async () => {
+  // Get admin token from localStorage
+  const adminToken = localStorage.getItem("adminToken");
+  if (!adminToken) {
+    toastService.error("Authentication required");
+    return;
+  }
+
+  // Ask user for master key
+  const masterKey = window.prompt("Please enter the master key:");
+  if (!masterKey) {
+    toastService.error("Master key is required");
+    return;
+  }
+
+  try {
+    // Create a download link
+    const downloadLink = document.createElement("a");
+    downloadLink.download = `user-reports-${new Date().toISOString().split("T")[0]}.csv`;
+
+    // Call API with headers
+    const response = await fetch(`${BACKEND_URL}/reports/export-detailed-score-report`, {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${adminToken}`,
+        "masterkey": masterKey,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Error: ${response.status} ${response.statusText}`);
+    }
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+
+    // Download file
+    downloadLink.href = url;
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(downloadLink);
+
+    toastService.success("Report downloaded successfully");
+  } catch (error) {
+    console.error("Error downloading report:", error);
+    toastService.error(`Failed to download report: ${error.message}`);
+  }
+}}
+
                   className="flex items-center space-x-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-md"
                 >
                   <FileText className="w-5 h-5" />
