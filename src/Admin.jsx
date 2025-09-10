@@ -429,7 +429,7 @@ const AdminPanel = () => {
       toastService.success('Question added!');
     }
   };
-  const [activeTab, setActiveTab] = useState('students');
+  const [activeTab, setActiveTab] = useState('exams');
   const navigate = useNavigate();
   const [students, setStudents] = useState([]);
   const [filteredStudents, setFilteredStudents] = useState([]);
@@ -437,6 +437,9 @@ const AdminPanel = () => {
   const [exams, setExams] = useState([]);
   const [filteredExams, setFilteredExams] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+  // Pagination for students
+  const [currentPage, setCurrentPage] = useState(1);
+  const [studentsPerPage] = useState(9); // Show 9 students per page to fit 3x3 grid
   const [showStudentForm, setShowStudentForm] = useState(false);
   const [showExamForm, setShowExamForm] = useState(false);
   const [studentForm, setStudentForm] = useState({ name: '', id: '', email: '' });
@@ -1692,6 +1695,8 @@ const AdminPanel = () => {
       // If search is empty, show all items
       setFilteredStudents(students);
       setFilteredExams(exams);
+      // Reset to first page when search is cleared
+      setCurrentPage(1);
       return;
     }
 
@@ -1705,6 +1710,8 @@ const AdminPanel = () => {
         student.id?.toString().includes(query)
       );
       setFilteredStudents(filtered);
+      // Reset to first page when search results change
+      setCurrentPage(1);
     } else if (activeTab === 'exams') {
       const filtered = exams.filter(exam => 
         exam.title?.toLowerCase().includes(query) || 
@@ -2275,7 +2282,10 @@ const AdminPanel = () => {
                   <p className="mt-2 text-gray-600">Loading students...</p>
                 </div>
               ) : filteredStudents.length > 0 ? (
-                filteredStudents.map((student) => (
+                // Display only current page of students
+                filteredStudents
+                  .slice((currentPage - 1) * studentsPerPage, currentPage * studentsPerPage)
+                  .map((student) => (
                   <div key={student.uuid} className="bg-white rounded-lg p-6 shadow-md hover:shadow-lg transition-shadow border border-gray-200">
                     <div className="flex justify-between items-start mb-4">
                       <div className="bg-blue-100 w-12 h-12 rounded-full flex items-center justify-center">
@@ -2320,6 +2330,54 @@ const AdminPanel = () => {
                 </div>
               )}
             </div>
+            
+            {/* Pagination Controls */}
+            {filteredStudents.length > 0 && (
+              <div className="flex justify-center mt-8">
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className={`px-4 py-2 rounded-md ${
+                      currentPage === 1
+                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                  >
+                    Previous
+                  </button>
+                  
+                  {/* Page numbers */}
+                  {Array.from({ length: Math.ceil(filteredStudents.length / studentsPerPage) }).map((_, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setCurrentPage(index + 1)}
+                      className={`px-4 py-2 rounded-md ${
+                        currentPage === index + 1
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      }`}
+                    >
+                      {index + 1}
+                    </button>
+                  ))}
+                  
+                  <button
+                    onClick={() => setCurrentPage(prev => 
+                      Math.min(prev + 1, Math.ceil(filteredStudents.length / studentsPerPage))
+                    )}
+                    disabled={currentPage === Math.ceil(filteredStudents.length / studentsPerPage)}
+                    className={`px-4 py-2 rounded-md ${
+                      currentPage === Math.ceil(filteredStudents.length / studentsPerPage)
+                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
