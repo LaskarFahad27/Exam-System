@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import ReadingPassageQuestions from './ReadingPassageQuestions';
 import { fetchPassageForReadingSet } from './utils/passageUtils';
 import { Users, BookOpen, Plus, Edit3, Trash2, Eye, EyeOff, GraduationCap, FileText, Calculator, Book, PenTool, X, 
-         ScrollText, CircuitBoard, FlaskConical, Stethoscope, UserCircle2, Calendar, Search, ImagePlus, BarChart, PieChart } from 'lucide-react';
+         ScrollText, CircuitBoard, FlaskConical, Stethoscope, UserCircle2, Calendar, Search, ImagePlus, BarChart, PieChart, Share2, Link, Copy } from 'lucide-react';
 import './components/Tooltip.css';
 import toastService from './utils/toast.jsx';
 import { setStorageItem, getStorageItem, removeStorageItem, debugImageStorage } from './utils/localStorageHelper';
@@ -18,7 +18,7 @@ import {
 import { getExams, createExam, createSection, createQuestions, dropExam, forceDropExam, fetchExamsById, 
         deleteQuestion, deleteSection, toggleExamPublishStatus, updateExamBasicDetails, createQuestionSet, 
         fetchQuestionSet, addQuestionToSet, removeQuestionFromSet, fetchQuestionsForSet, searchQuestionSets,
-        editQuestionSet, deleteQuestionSet, getExamStatistics } from './utils/api';
+        editQuestionSet, deleteQuestionSet, getExamStatistics, generateExamLink, updateUserType } from './utils/api';
         
 import MCQMaker from './MCQMaker';
 import MathMCQMaker from './MathMCQMaker';
@@ -501,6 +501,89 @@ const AdminPanel = () => {
   const [currentStatistics, setCurrentStatistics] = useState(null);
   const [loadingStatistics, setLoadingStatistics] = useState(false);
   const [currentExamForStats, setCurrentExamForStats] = useState(null);
+  
+  // Exam Link Generation
+  const [showExamLinkModal, setShowExamLinkModal] = useState(false);
+  const [currentExamLink, setCurrentExamLink] = useState(null);
+  const [loadingExamLink, setLoadingExamLink] = useState(false);
+  const [loadingShareExam, setLoadingShareExam] = useState({});
+  const [linkVisibility, setLinkVisibility] = useState('public');
+  const [linkCopied, setLinkCopied] = useState(false);
+  
+  // User Type Update
+  const [loadingUserTypeUpdate, setLoadingUserTypeUpdate] = useState({});
+
+  // Function to handle generating exam link
+  const handleGenerateExamLink = async (e, examId, examTitle) => {
+    e.stopPropagation(); // Prevent parent click event (edit exam)
+    
+    try {
+      setLoadingShareExam(prev => ({ ...prev, [examId]: true }));
+      const result = await generateExamLink(examId);
+      
+      if (result.success) {
+        setCurrentExamLink({
+          id: examId,
+          title: examTitle,
+          ...result.data
+        });
+        setShowExamLinkModal(true);
+      } else {
+        toastService.error("Failed to generate exam link");
+      }
+    } catch (error) {
+      toastService.error(`Error: ${error.message}`);
+    } finally {
+      setLoadingShareExam(prev => ({ ...prev, [examId]: false }));
+    }
+  };
+
+  // Function to toggle link visibility
+  const handleToggleLinkVisibility = () => {
+    setLinkVisibility(prev => prev === 'public' ? 'private' : 'public');
+  };
+
+  // Function to copy link to clipboard
+  const handleCopyLink = () => {
+    if (currentExamLink?.access_link) {
+      navigator.clipboard.writeText(currentExamLink.access_link)
+        .then(() => {
+          setLinkCopied(true);
+          setTimeout(() => setLinkCopied(false), 2000);
+        })
+        .catch(() => {
+          toastService.error("Failed to copy link");
+        });
+    }
+  };
+
+  // Function to handle updating user type
+  const handleUpdateUserType = async (userId, currentType) => {
+    try {
+      const newType = currentType === 'public' ? 'enrolled' : 'public';
+      setLoadingUserTypeUpdate(prev => ({ ...prev, [userId]: true }));
+      
+      const result = await updateUserType(userId, newType);
+      
+      if (result.success) {
+        // Update the students list with the new user type
+        setStudents(students.map(student => 
+          student.id === userId ? { ...student, user_type: newType } : student
+        ));
+        
+        // Also update filtered students
+        setFilteredStudents(filteredStudents.map(student => 
+          student.id === userId ? { ...student, user_type: newType } : student
+        ));
+        
+        toastService.success(`User type updated to ${newType}`);
+      }
+    } catch (error) {
+      toastService.error(`Error updating user type: ${error.message}`);
+    } finally {
+      setLoadingUserTypeUpdate(prev => ({ ...prev, [userId]: false }));
+    }
+  };
 
   // Function to fetch and display exam statistics
   const handleViewStatistics = async (e, examId, examTitle) => {
@@ -2291,13 +2374,19 @@ const AdminPanel = () => {
                       <div className="bg-blue-100 w-12 h-12 rounded-full flex items-center justify-center">
                         <Users className="w-6 h-6 text-blue-600" />
                       </div>
-                      {/* <button
-                        onClick={() => deleteStudent(student.id)}
-                        className="text-red-500 hover:text-red-700 transition-colors"
-                        title="Delete Student"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </button> */}
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => handleUpdateUserType(student.id, student.user_type)}
+                          className={`px-3 py-1 text-xs font-medium rounded ${student.user_type === 'enrolled' ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'} transition`}
+                          disabled={loadingUserTypeUpdate[student.id]}
+                        >
+                          {loadingUserTypeUpdate[student.id] ? (
+                            <div className="w-4 h-4 border-2 border-t-2 border-current rounded-full animate-spin mx-auto"></div>
+                          ) : (
+                            student.user_type === 'enrolled' ? "Change to Public" : "Change to Enrolled"
+                          )}
+                        </button>
+                      </div>
                     </div>
                     <h3 className="text-lg font-semibold text-gray-800 mb-3">{student.name}</h3>
                     <div className="space-y-2">
@@ -2311,9 +2400,11 @@ const AdminPanel = () => {
                         <span className="font-medium mr-2">Phone:</span> {student.phone || 'N/A'}
                       </div>
                       <div className="flex items-center text-gray-600 text-sm">
-                        <span className="font-medium mr-2">Role:</span> 
-                        <span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full text-xs font-medium">
-                          {student.role}
+                        <span className="font-medium mr-2">Status:</span> 
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                          student.user_type === 'enrolled' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {student.user_type}
                         </span>
                       </div>
                       <div className="flex items-center text-gray-600 text-sm">
@@ -2760,6 +2851,19 @@ const AdminPanel = () => {
         className="relative bg-white p-6 rounded-lg shadow-md cursor-pointer hover:shadow-lg transition"
       >
         <div className="absolute top-2 right-2 flex space-x-2 ">
+          <button
+            onClick={(e) => handleGenerateExamLink(e, exam.id, exam.title)}
+            className="p-1 rounded-full text-blue-500 hover:text-blue-700 transition"
+            disabled={loadingShareExam[exam.id]}
+            title="Share Exam Link"
+          >
+            {loadingShareExam[exam.id] ? (
+              <div className="w-5 h-5 border-2 border-t-2 border-blue-500 rounded-full animate-spin"></div>
+            ) : (
+              <Share2 className="w-5 h-5" />
+            )}
+          </button>
+        
           <button
             onClick={(e) => handleViewStatistics(e, exam.id, exam.title)}
             className="p-1 rounded-full text-blue-500 hover:text-blue-700 transition"
@@ -4578,6 +4682,80 @@ const AdminPanel = () => {
                     <span>Delete</span>
                   </>
                 )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Exam Link Modal */}
+      {showExamLinkModal && currentExamLink && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-gray-800">Exam Access Link</h3>
+              <button
+                onClick={() => {
+                  setShowExamLinkModal(false);
+                  setCurrentExamLink(null);
+                  setLinkCopied(false);
+                }}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <p className="text-gray-600 mb-4">Share this link with students to provide access to {currentExamLink.title}</p>
+            
+            <div className="mb-4 bg-gray-100 p-3 rounded-lg flex items-center">
+              <div className="flex-1 overflow-hidden">
+                <p className="whitespace-nowrap overflow-hidden text-ellipsis">{currentExamLink.access_link}</p>
+              </div>
+              <button
+                onClick={handleCopyLink}
+                className={`ml-2 p-2 rounded-md transition-colors ${
+                  linkCopied ? 'bg-green-100 text-green-600' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                }`}
+                title={linkCopied ? "Copied!" : "Copy Link"}
+              >
+                {linkCopied ? (
+                  <span className="text-xs">Copied</span>
+                ) : (
+                  <Copy className="w-4 h-4" />
+                )}
+              </button>
+            </div>
+            
+            <div className="flex items-center justify-between mb-3">
+              <p className="font-medium">Link Visibility:</p>
+              <button
+                onClick={handleToggleLinkVisibility}
+                className={`px-4 py-2 rounded-md ${
+                  linkVisibility === 'public'
+                    ? 'bg-green-100 text-green-700 border border-green-300'
+                    : 'bg-gray-100 text-gray-700 border border-gray-300'
+                }`}
+              >
+                {linkVisibility === 'public' ? 'Public' : 'Private'}
+              </button>
+            </div>
+            
+            <p className="text-sm text-gray-500 mb-4">
+              {linkVisibility === 'public'
+                ? "Public links allow anyone to access the exam without logging in."
+                : "Private links require user authentication to access the exam."}
+            </p>
+            
+            <div className="border-t border-gray-200 pt-4">
+              <button
+                onClick={() => {
+                  setShowExamLinkModal(false);
+                  setCurrentExamLink(null);
+                  setLinkCopied(false);
+                }}
+                className="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+              >
+                Done
               </button>
             </div>
           </div>
