@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { Clock, AlertCircle, CheckCircle, ArrowRight, User, Shield, BookOpen, Calculator, Edit, Menu, Award, XCircle, FileText } from 'lucide-react';
 import { getNextSection, submitSectionAnswers, getExamResults } from './utils/api';
 import { navigateAndScrollToTop } from './utils/navigation';
@@ -11,12 +11,14 @@ import MathDisplay from './components/MathDisplay';
 import { renderContent, renderMathContent } from './utils/mathUtils';
 import QuestionImage from './components/QuestionImage';
 import PassageBar from './components/PassageBar';
+import { startExam } from './utils/examAccess';
 
 // Using mathUtils.jsx for all math rendering functionality
 
 const OnlineExam = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { examId } = useParams(); // Get examId from URL parameters if available
   
   // State from navigation
   const [userExamId, setUserExamId] = useState(location.state?.userExamId);
@@ -52,9 +54,52 @@ const OnlineExam = () => {
     };
   }, [navigate]);
 
+  // Handle direct exam access via URL parameter
+  useEffect(() => {
+    // If we have an examId from URL and no userExamId yet, start the exam
+    if (examId && !userExamId) {
+      const initializeExamFromURL = async () => {
+        try {
+          const studentToken = localStorage.getItem('studentToken');
+          if (!studentToken) {
+            toastService.error('Please login to access this exam.');
+            // Store the exam ID for redirect after login
+            localStorage.setItem('redirectExamId', examId);
+            navigateAndScrollToTop(navigate, '/');
+            return;
+          }
+          
+          // Start the exam using the examId from URL
+          const result = await startExam(examId);
+          if (result.success) {
+            setUserExamId(result.data.user_exam_id);
+            setExamTitle(result.data.exam_title || 'Online Exam');
+            setExamDescription(result.data.exam_description || '');
+            
+            // Clear any existing submission flags for this new exam
+            clearExamSubmissionFlags(result.data.user_exam_id);
+          } else {
+            toastService.error(result.message || 'Failed to start exam.');
+            navigateAndScrollToTop(navigate, '/exam-selection');
+          }
+        } catch (error) {
+          console.error('Error starting exam from URL:', error);
+          toastService.error(error.message || 'Failed to initialize exam.');
+          navigateAndScrollToTop(navigate, '/exam-selection');
+        }
+      };
+      
+      initializeExamFromURL();
+    }
+  }, [examId, navigate, userExamId]);
+
   useEffect(() => {
     // Check if we have the required state
     if (!userExamId) {
+      if (examId) {
+        // Don't show error if we're waiting for exam initialization from URL
+        return;
+      }
       toastService.error('Invalid exam session. Redirecting to exam selection.');
       navigateAndScrollToTop(navigate, '/exam-selection');
       return;
@@ -73,7 +118,7 @@ const OnlineExam = () => {
 
     // Load the first/next section
     loadNextSection();
-  }, [userExamId, navigate]);
+  }, [userExamId, navigate, examId]);
 
   const autoSubmitSection = async () => {
     // Only proceed if we have a valid section and not already submitting

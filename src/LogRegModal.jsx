@@ -117,7 +117,20 @@ const LogRegModal = ({ isOpen, onClose }) => {
         setPassword('');
         toastService.success("Logged in successfully");
         localStorage.setItem("studentToken", data.data.token);
-        handleClose(); // Close the modal with animation
+        
+        // Check if there's an exam redirect waiting
+        const redirectExamId = localStorage.getItem('redirectExamId');
+        
+        if (redirectExamId) {
+          // Clear the redirect data
+          localStorage.removeItem('redirectExamId');
+          
+          // Close modal and redirect to the exam page
+          handleClose();
+          navigate(`/exams/${redirectExamId}`);
+        } else {
+          handleClose(); // Close the modal with animation
+        }
       } else {
         throw new Error(data.message || 'Login failed');
       }

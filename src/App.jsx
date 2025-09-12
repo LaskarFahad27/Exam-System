@@ -12,6 +12,7 @@ import AdminPanel from "./Admin";
 import LandingPage from "./LandingPage";
 import ExamSelectionPage from "./ExamSelectionPage";
 import SessionsTest from "./components/SessionsTest";
+import ExamAccess from "./components/ExamAccess";
 import Footer from "./components/Footer";
 import ScrollToTop from "./components/ScrollToTop";
 
@@ -50,6 +51,8 @@ function App() {
           <Route path="/exam/uiu" element={<UIU_Exam />} /> 
           <Route path="/exam-selection" element={<ExamSelectionPage />} />
           <Route path="/online_exam" element={<OnlineExam />} />
+          <Route path="/online-exam/:examId" element={<OnlineExam />} />
+          <Route path="/exams/:examId" element={<ExamAccess />} />
           <Route path="/test-sessions" element={<SessionsTest />} />
           <Route path="/adminlogin" element={<AdminLogin />} />
           <Route path="/admin" element={<AdminPanel />} />

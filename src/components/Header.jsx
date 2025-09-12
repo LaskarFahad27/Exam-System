@@ -33,6 +33,18 @@ const Header = () => {
         if (studentToken) {
           fetchDeviceCount();
         }
+        
+        // Listen for custom event to open login modal
+        const handleOpenLoginModal = () => {
+          setIsLogRegModalOpen(true);
+        };
+        
+        window.addEventListener('openLoginModal', handleOpenLoginModal);
+        
+        // Clean up event listener
+        return () => {
+          window.removeEventListener('openLoginModal', handleOpenLoginModal);
+        };
       }, []);
       
     // Fetch the device count
